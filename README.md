@@ -5,7 +5,7 @@ Grand Numerical Analysis of Respiration or GNAR is a program created to identify
 The program takes time series data from data acquisition softwares such as LabChart and separates and averages each breath.
 
 **GNAR pipeline:**
-* Composite MEFV curve is created from graded FVC maneouvers (see ![Guenette et al., RESPNB, 2010](10.1016/j.resp.2010.01.017))
+* Composite MEFV curve is created from graded FVC maneouvers pre and post exercise
 * Volume drift is corrected 
 * Breaths are separated and averaged
 * IC is calculated to determine placement of exercise FV loops in the MEFV curve
@@ -13,7 +13,7 @@ The program takes time series data from data acquisition softwares such as LabCh
 
 Aspects of this code is adapted from ![RespMech](https://github.com/emilwalsted/respmech) which is a great analysis tool for analysing respiratory mechanics such as work of breathing and diaphragm EMG recorded with an esophageal balloon catheter. I am currently working on integrating GNAR into the RespMech pipeline.
 
-Please note, I am a researcher first, programmer second. I learned python for the purpose of this project so the code may be inefficient at times. Please reach out if you find issues or areas that can be improved or want assistance with your use case!
+Please note, I am a researcher first, programmer second. I learned python for the purpose of this project so the code may be inefficient at times. Please reach out if you find issues/areas that can be improved or want assistance with your use case!
 
 
 ## Set up
@@ -35,7 +35,7 @@ To allow for the code to run each stage of exercise in order, use sequential 3 d
 
 **Time series data (only export time, flow, volume):**
 
-* The "breaths" folder should contain ~30 seconds of fairly clean breaths towards the end of that stage of exercise (ideally last 30 seconds). Do not include the IC breath in this. Start selection on an inspiration and end on an expiration as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/breath.png).
+* The "breaths" folder should contain ~30 seconds of fairly clean breaths towards the end of that stage of exercise (ideally last 30 seconds). Do not include the IC breath in this. Start selection on an inspiration and end on an expiration as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/breath.png)
 
 * The "ic" folder should contain ~30 seconds of fairly clean breaths AND the IC breath, starting on an inspiration and ending mid way on the expired breath directly following the IC breatg as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/ic.png)
 
