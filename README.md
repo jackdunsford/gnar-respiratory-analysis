@@ -39,14 +39,20 @@ To allow for the code to run each stage of exercise in order, for the breaths an
 * The "fvc" folder should contain a number of graded fvc manoevers before and after exercise (I used 8 pre and 8 post). Select from the lowest point on the volume trace (should be the zero crossing on flow trace) to the highest point on the volume trace (flow should again be 0) as shown ![here](instructional_images/Screenshot 2024-09-10 at 8.50.15 AM.png).
 
 ## Running the code
-In the **settings.py** file, add the path to your input folder as such:
+
+Duplicate **settings.py** file (a new one for each participant or study or use duplicated as a master), add the path to your input folder as such:
 
 '''
-"inputfolder": r'/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/Thesis/01-220/V2 gnarpy',
+"inputfolder": r'/Users/jackdunsford/Documents/dev/gnar/gnar/example_folder',
 '''
 
+Adjust settings as desired and run.
 
+Data and figures will be saved to the "output" folder, review these to determine which breaths should be ignored upon second analysis and add these files and breaths to the "ignoreic" and "ignorebreath" as shown in the example.
 
+Rerun the analysis and repeat until breath selection is clean.
 
 ## Output
-By default, the code will output three figures,  
+By default, the code will output three figures for each stage, IC breath correction (ignoreic in settings will tell the code to ignore erroneous peaks), raw flow/volume and corrected volume for the breaths, and the FV loop inside the MEFV curve.
+
+The code will also output four excel files with the processed/averaged data for each stage, average FV loop for each stage, the composite MEFV curve, and spirometry data based on the MEFV curve.
