@@ -19,6 +19,6 @@ settings = {
     "saveaveragedata": True #saves an excel with the data of the average flow volume loop for each stage
 }
 
-
-output_df = gnar.analyse(settings)
+if __name__ == '__main__':
+    output_df = gnar.analyse(settings)
  
