@@ -12,18 +12,21 @@ from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
 import glob
 
+def check_dir(path):
+    if not os.path.exists(path): 
+        os.makedirs(path)
+
 def ignorebreaths(inputfile, foric, settings):
     curfile =  os.path.basename(inputfile)
-    
-    if foric:
-        d = dict(settings['ignoreic'])
-    else: 
-        d = dict(settings['ignorebreath'])
-    
-    if curfile in d:
-        ib = [x-1 for x in d[curfile]]
-        return ib
-    
+    if len(settings['ignoreic']) > 0:
+        if foric:
+            d = dict(settings['ignoreic'])
+        else: 
+            d = dict(settings['ignorebreath'])
+        
+        if curfile in d:
+            ib = [x-1 for x in d[curfile]]
+            return ib
     else: return []
 
 def correcttrend(volume, file):
@@ -82,7 +85,10 @@ def correcttrendic(volume, input_path, pdf, settings):
                 if count != len(valleys):
                     text = " #" + str(count)
                     # axes[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)   
-                    axes[x].text(point, yl[0], text, fontsize=8)   
+                    axes[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
+                    if count in ib:
+                        axes[x].axvspan(valleys[count], valleys[count + 1], facecolor='red', alpha=0.2)
+                        axes[x].text(point+1, yl[0], "ignored", fontsize=8)
                     count+=1
 
         pdf.savefig()
@@ -106,6 +112,13 @@ def get_ic(ic_path, pdf, settings):
 
     return ic
 
+def trim(volume):
+    diff = volume.diff()
+    start_idx = diff[diff < 0].index[0]
+    end_idx = diff[diff > 0].index[-1]
+    trimmed_data = volume.loc[start_idx:end_idx]
+    return trimmed_data
+
 def averagebreaths(breath_path, pdf, settings):
     """
     takes time, flow and trend and drift corrected volume of a series of breaths as np.arrays and
@@ -115,7 +128,6 @@ def averagebreaths(breath_path, pdf, settings):
     Returns an ordered dict with flow, volume, and time each breath separated into inspiration
     and expiration for each breath
     """
-   
     totalbreaths = OrderedDict()    
     breaths = pd.read_csv(breath_path,
                             delimiter='\t',
@@ -124,7 +136,6 @@ def averagebreaths(breath_path, pdf, settings):
     
 
     volumeraw = breaths['volume'].to_numpy()
-    # poes = breaths['poes'].to_numpy()
     flow = breaths['flow'].to_numpy()
     time = breaths['time'].to_numpy()
 
@@ -159,11 +170,10 @@ def averagebreaths(breath_path, pdf, settings):
                 if count != len(valley):
                     text = " #" + str(count)
                     ax[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
+                    if count in ib:
+                        ax[x].axvspan(valley[count], valley[count + 1], facecolor='red', alpha=0.2)
+                        ax[x].text(point, yl[0], "ignored", fontsize=8)
                     count+=1
-            if len(ib) > 0:
-                for breathno in ib:
-                    ax[x].axvspan(valley[breathno], valley[breathno + 1], facecolor='gray', alpha=0.2)
-
 
         pdf.savefig()
         plt.close()
@@ -266,6 +276,7 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
     
     count=0
     avg_expired.volume = avg_expired.volume.values[::-1]
+    avg_inspired.volume = avg_inspired.volume.values[::-1]
     avg_expired.volume = avg_expired.volume + erv
     avg_inspired.volume = avg_inspired.volume + erv
 
@@ -300,6 +311,25 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
 
     return efl, efl_percent
 
+def get_vecap(mefv,vt,te,ti,erv,irv):
+    mefv = mefv.reset_index()
+    start = mefv.index[mefv['volume']==erv][0]
+    end = mefv.index[mefv['volume']==irv][0]
+    temax = 0
+    for i in range(start, end):
+        mef = mefv.flow[i]
+        temax+= 0.01/mef
+
+    # print(temax)
+    # ttot = te+ti
+    ttotmax = temax/(te/(te+ti))
+    fbmax = 60/ttotmax
+    # print(fbmax, vt)
+    vecap = vt * fbmax
+    
+
+    return vecap
+
 def mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, filename, pdf, settings):
     
     avg_expired_efl = avgexp_df.copy()
@@ -308,11 +338,13 @@ def mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, filename, pdf
 
     fvc = spirometry.get_fvc(mefv)
     
-    erv = fvc - ic
-    irv = erv + vt
+    erv = (fvc - ic).round(2)
+    irv = (erv + vt).round(2)
 
     efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
-    
+    vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
+
+
     # TODO: Add VEcap
     
     
@@ -320,12 +352,12 @@ def mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, filename, pdf
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
                  'IC': [ic.round(2)],
-                #  'VEcap': [vecap],
-                #  'VEcap(%)': [(ve / vecap)],
                  'ERV': [erv.round(2)],
                  'IRV': [irv.round(2)],
                  'Ti': [ti],
                  'Te': [te],
+                 'VEcap': [vecap],
+                 'VEcap(%)': [(ve / vecap)],
                  'EFL': [efl],
                  'EFL%': [efl_percent]}
 
@@ -339,6 +371,9 @@ def listdir_nohidden(path):
             yield f
 
 def analyse(settings):
+    check_dir(pjoin(settings['inputfolder'], "output", "data"))
+    check_dir(pjoin(settings['inputfolder'], "output", "figures"))
+
     inputfolder = settings['inputfolder']
     
     fvcfolder = pjoin(inputfolder, "fvc")
@@ -366,6 +401,7 @@ def analyse(settings):
         outputdata = pd.concat([outputdata, df])
     
     if settings['saveoutput']:
+
         outputdata.to_excel(pjoin(outputfolder, "data", "ExerciseData.xlsx"), index=False)
 
     return outputdata

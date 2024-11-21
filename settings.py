@@ -1,14 +1,15 @@
 import gnar
 
-settings = {
-    "inputfolder": r'/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/Thesis/01-220/V2 gnarpy',
+settings = {    
+    "inputfolder": r'/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/Thesis/01-103/V1 gnarpy',
     #enter the name of the file and the breath number you wish to exclude from the IC volume drift correction
+    # for both ic and breath, if no ignored breaths, leave empty between [], if multiple breaths use [1,2,3]
     "ignoreic": [
-        ["01-220_V2_IC220.txt", [12]]
+        
     ],
     #enter the name of the file and the breath number you wish to exclude from volume drift correction and averaging
     "ignorebreath":[
-        ["01-220_V2_IC220.txt", [12]]
+        
     ],
     "saveiccorrection": True, #saves a plot with the ic trend correction to check for incorrect EELV detection
     "saverawflowvolume": True, #saves a plot of the raw flow and volume traces
