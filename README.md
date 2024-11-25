@@ -1,8 +1,8 @@
 # Grand Numerical Analysis of Respiration
 
 ## About GNAR
-Grand Numerical Analysis of Respiration or GNAR is a program created to identify and quantify expiratory flow limitation during exercise. 
-The program takes time series data from data acquisition softwares such as LabChart and separates and averages each breath.
+This version of Grand Numerical Analysis of Respiration or GNAR is a remake of the original "GNARx" program written in LabView, created to identify and quantify expiratory flow limitation during exercise. 
+This program takes CPET time series data from data acquisition softwares such as LabChart and separates/averages breaths for each stage of exercise and outputs MEFV and tFV loops as well as the presence and magnitude of EFL.
 
 **GNAR pipeline:**
 * Composite MEFV curve is created from graded FVC maneouvers pre and post exercise
@@ -11,7 +11,7 @@ The program takes time series data from data acquisition softwares such as LabCh
 * IC is calculated to determine placement of exercise FV loops in the MEFV curve
 * The presence of EFL is determined by the presence and magnitude of overlap of the MEFV curve and FV loop
 
-Aspects of this code is adapted from ![RespMech](https://github.com/emilwalsted/respmech) which is a great analysis tool for analysing respiratory mechanics such as work of breathing and diaphragm EMG recorded with an esophageal balloon catheter. I am currently working on integrating GNAR into the RespMech pipeline.
+Aspects of this code are adapted from ![RespMech](https://github.com/emilwalsted/respmech) which is an analysis tool for analysing respiratory mechanics such as work of breathing and diaphragm EMG recorded with an esophageal balloon catheter. I am currently working on integrating GNAR into the RespMech pipeline.
 
 Please note, I am a researcher first, programmer second. I learned python for the purpose of this project so the code may be inefficient at times. Please reach out if you find issues/areas that can be improved or want assistance with your use case!
 
@@ -21,9 +21,9 @@ Clone this repository and open with your preferred Python IDE (I use VScode) run
 
 The **gnar.py** file contains the analysis code.
 
-The **spirometry.py** file is a module integrated into the gnar.py code but can function as a stand alone library creation and analysis of MEFV curves (see below for more info).
+The **spirometry.py** file is a module integrated into the gnar.py code but can function as a stand alone library for creation and analysis of MEFV curves.
 
-The **settings.py** is where data will be inputted, analysis and output settings are adjusted, and where gnar.py is executed.
+The **settings.py** is where data folders will be inputted, analysis and output settings are adjusted, and where gnar.py is executed.
 
 
 ## Input
@@ -59,3 +59,13 @@ Rerun the analysis and repeat until breath selection is clean.
 By default, the code will output three figures for each stage, IC breath correction (ignoreic in settings will tell the code to ignore erroneous peaks), raw flow/volume and corrected volume for the breaths, and the FV loop inside the MEFV curve.
 
 The code will also output four excel files with the processed/averaged data for each stage, average FV loop for each stage, the composite MEFV curve, and spirometry data based on the MEFV curve.
+
+## Analytical details
+### MEFV curves
+Using graded FVC manoevers before and after exercise, the mefv_curve function in **spirometry.py** creates a composite MEFV curve by taking the highest flow achieved at each lung volume to account for bronchodilation and thoracic gas compression.
+### IC drift correction
+The code corrects for drift in the volume signal by adjusting a line of best fit through end expiratory points to 0. Erroneous breaths can be ignored from line of best fit calculation in **settings.py** by writing the file name and what breath number should be ignored.
+
+## Future directions
+* Work of breathing measurements using esophageal and transdiaphragmatic pressures using pressure-volume integration, Hedstrand, Otis, and Modified Campbell methods.
+* Diaphragm EMG analysis including removal of ECG atrifacts
