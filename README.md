@@ -46,7 +46,7 @@ To allow for the code to run each stage of exercise in order, use sequential 3 d
 Duplicate **settings.py** file (a new one for each participant or study or use duplicated as a master), add the path to your input folder as such:
 
 '''
-"inputfolder": r'/Users/jackdunsford/Documents/dev/gnar/gnar/example_folder',
+"inputfolder": r'/path/to/your/data/folder',
 '''
 
 Adjust settings as desired and run.
