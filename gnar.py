@@ -12,6 +12,10 @@ from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
 import glob
 
+def check_dir(path):
+    if not os.path.exists(path): 
+        os.makedirs(path)
+
 def ignorebreaths(inputfile, foric, settings):
     curfile =  os.path.basename(inputfile)
     
@@ -298,32 +302,48 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
 
     return efl, efl_percent
 
+def get_vecap(mefv,vt,te,ti,erv,irv):
+    mefv = mefv.reset_index()
+    start = mefv.index[mefv['volume']==erv][0]
+    end = mefv.index[mefv['volume']==irv][0]
+    temax = 0
+    for i in range(start, end):
+        mef = mefv.flow[i]
+        temax+= 0.01/mef
+
+    ttotmax = temax/(te/(te+ti))
+    fbmax = 60/ttotmax
+    vecap = vt * fbmax
+    
+
+    return vecap
+
 def mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, filename, pdf, settings):
     
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
     # avg_expired_vecap = avgexp_df.copy()
 
-    fvc = spirometry.get_fvc(mefv)
+    fvc = spirometry.get_fvc(mefv).round(2)
     
-    erv = fvc - ic
-    irv = erv + vt
+    erv = (fvc - ic).round(2)
+    irv = (erv + vt).round(2)
 
     efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
+    vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
-    # TODO: Add VEcap
     
     
     mechanics = {'Fb': [fb.round(2)],
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
                  'IC': [ic.round(2)],
-                #  'VEcap': [vecap],
-                #  'VEcap(%)': [(ve / vecap)],
                  'ERV': [erv.round(2)],
                  'IRV': [irv.round(2)],
                  'Ti': [ti],
                  'Te': [te],
+                 'VEcap': [vecap],
+                 'VEcap(%)': [(ve / vecap)],
                  'EFL': [efl],
                  'EFL%': [efl_percent]}
 
@@ -337,6 +357,10 @@ def listdir_nohidden(path):
             yield f
 
 def analyse(settings):
+
+    check_dir(pjoin(settings['inputfolder'], "output", "data"))
+    check_dir(pjoin(settings['inputfolder'], "output", "figures"))
+
     inputfolder = settings['inputfolder']
     
     fvcfolder = pjoin(inputfolder, "fvc")
@@ -357,7 +381,7 @@ def analyse(settings):
             ic_input = pjoin(inputfolder, "ic", ic_file)  
         
         with PdfPages(pjoin(outputfolder, "figures", file_name +'_plots.pdf')) as pdf:
-            ic = get_ic(ic_input, pdf, settings)
+            ic = get_ic(ic_input, pdf, settings).round(2)
             avginsp_df, avgexp_df, te, ti, fb, vt, ve = averagebreaths(input_path, pdf, settings)
             df = mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, file_name,  pdf, settings)
         
