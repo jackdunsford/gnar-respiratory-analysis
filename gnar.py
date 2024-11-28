@@ -93,10 +93,9 @@ def correcttrendic(volume, input_path, pdf, settings):
 def get_ic(ic_path, pdf, settings):
 
     breaths = pd.read_csv(ic_path,
-                            delimiter='\t',
-                            names=['volume'])
+                            delimiter='\t')
 
-    volume = breaths['volume'].to_numpy()
+    volume = breaths.iloc[:,settings['volumecol']].to_numpy()
     trendcorvol = correcttrendic(volume, ic_path, pdf, settings)
     corvol = trendcorvol
 
@@ -118,15 +117,14 @@ def averagebreaths(breath_path, pdf, settings):
    
     totalbreaths = OrderedDict()    
     breaths = pd.read_csv(breath_path,
-                            delimiter='\t',
-                            names=['time','flow', 'volume'])
+                            delimiter='\t')
    
     
 
-    volumeraw = breaths['volume'].to_numpy()
+    volumeraw = breaths.iloc[:,settings['volumecol']].to_numpy()
     # poes = breaths['poes'].to_numpy()
-    flow = breaths['flow'].to_numpy()
-    time = breaths['time'].to_numpy()
+    flow = breaths.iloc[:,settings['flowcol']].to_numpy()
+    time = breaths.iloc[:,settings['timecol']].to_numpy()
 
     volumeraw = volumeraw - volumeraw[0]
     
