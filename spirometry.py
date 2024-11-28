@@ -49,15 +49,20 @@ def save_spirometry(mefv, path, settings):
         df.to_excel(writer, sheet_name='Data', index=False)
         mefv2.to_excel(writer, sheet_name='MEFV', index=False)
 
-def individual_fvc(input_path:str):
+def individual_fvc(input_path:str, settings):
     """
     fed each file from the mefv_curve function and creates a data frame of
     that MEFV curve
     """
     # print(input_path)
     data = pd.read_csv(input_path,
-                            delimiter='\t',
-                            names=['time', 'flow', 'volume'])
+                            delimiter='\t')
+    data = data.iloc[:, [settings['timecol'],settings['flowcol'], settings['volumecol']]]
+    data.columns = ['time', 'flow', 'volume']
+    # volume= data[settings['volumecol']].to_numpy()
+    # # poes = breaths['poes'].to_numpy()
+    # flow = data[settings['flowcol']].to_numpy()
+    # time = data[settings['timecol']].to_numpy()
     
     data['volume'] = (data['volume'] - data['volume'][0]).round(2)
     data = data[data['volume'] >= 0]
@@ -79,7 +84,7 @@ def mefv_curve(path, settings):
     for f in dl:
         if f.endswith(".txt"):
             path_in = os.path.join(path,f)
-            df = individual_fvc(path_in)
+            df = individual_fvc(path_in, settings)
             ax.plot(df.volume, df.flow, alpha=0.2, color = "gray")
             master_df = pd.concat([master_df, df])
     
