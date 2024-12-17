@@ -39,7 +39,7 @@ To allow for the code to run each stage of exercise in order, use sequential 3 d
 
 * The "ic" folder should contain ~30 seconds of fairly clean breaths AND the IC breath, starting on an inspiration and ending mid way on the expired breath directly following the IC breatg as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/ic.png)
 
-* The "fvc" folder should contain a number of graded fvc manoevers before and after exercise (I used 8 pre and 8 post). Select from the lowest point on the volume trace (should be the zero crossing on flow trace) to the highest point on the volume trace (flow should again be 0) as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/ic.png)
+* The "fvc" folder should contain a number of graded fvc manoevers before and after exercise (I used 8 pre and 8 post). Select from the lowest point on the volume trace (should be the zero crossing on flow trace) to the highest point on the volume trace (flow should again be 0) as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/fvc.png)
 
 ## Running the code
 
