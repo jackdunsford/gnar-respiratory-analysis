@@ -66,10 +66,6 @@ def get_points(averageexpbreath, age, sex, frc_y):
     # Calculate x-coordinate of intersection
     frc_x = (y_intersection - b1) / m1
 
-    # Calculate x-coordinates of start and end points for Line 2
-    # x_ccw_eilv = (y2_start - b2) / slope_line2
-    # x_ccw_eelv = (y2_end - b2) / slope_line2
-
     x_ccw_eilv = (y_eilv - frc_y) / slope_line2 + frc_x
     x_ccw_eelv = (y_eelv - frc_y) / slope_line2 + frc_x
 
