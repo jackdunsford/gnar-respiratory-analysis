@@ -11,6 +11,7 @@ import os
 from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
 import glob
+import wob
 
 def check_dir(path):
     if not os.path.exists(path): 
@@ -30,7 +31,7 @@ def ignorebreaths(inputfile, foric, settings):
     
     else: return []
 
-def correcttrend(volume, file):
+def correcttrend(volume):
         """corrects volume trend"""
 
         vol = volume.squeeze()
@@ -62,7 +63,7 @@ def correcttrendic(volume, input_path, pdf, settings):
     peaksresampled = p(np.linspace(0, vol.size-1, vol.size))
     corvol = volume - peaksresampled
     
-    if settings['saveiccorrection']:
+    if settings['saveiccorrection'] and pdf:
         fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(15, 10))
         fig.suptitle("Trend correction and selection of IC volume for " + os.path.basename(input_path), fontsize=15)
         axes[0].plot(volume)
@@ -96,180 +97,150 @@ def correcttrendic(volume, input_path, pdf, settings):
 
 def get_ic(ic_path, pdf, settings):
 
-    breaths = pd.read_csv(ic_path,
-                            delimiter='\t')
-
+    breaths = pd.read_csv(ic_path, delimiter='\t')
     volume = breaths.iloc[:,settings['volumecol']].to_numpy()
     trendcorvol = correcttrendic(volume, ic_path, pdf, settings)
     corvol = trendcorvol
-
     peaks = signal.find_peaks((corvol*-1), prominence=0.25, distance=50)[0]
-    
     ic = abs(corvol[peaks][-1])
-
     return ic
 
-def averagebreaths(breath_path, pdf, settings):
-    """
-    takes time, flow and trend and drift corrected volume of a series of breaths as np.arrays and
-    separates into individual inspired and expired breaths based on inspired and expired volume peaks.
-    *** volume trace must start on inspiration and end on expiration ***    
+def get_rest_ic(rest_ic_path, settings):
+    rest_ic = []
+    for file in sorted(os.listdir(rest_ic_path)):
+        if file.endswith(".txt"):
+            path_in = os.path.join(rest_ic_path, file)
+            rest_ic.append(get_ic(path_in, False, settings))
+    return pd.DataFrame(rest_ic).mean()
 
-    Returns an ordered dict with flow, volume, and time each breath separated into inspiration
-    and expiration for each breath
-    """
-   
-    totalbreaths = OrderedDict()    
-    breaths = pd.read_csv(breath_path,
-                            delimiter='\t')
-   
+def average_breath(path, erv, pdf, settings):
+    #load data
+    df = pd.read_csv(path, 
+                 delimiter='\t')
+    time = df.iloc[:, settings['timecol']].to_numpy()
+    flow = df.iloc[:, settings['flowcol']].to_numpy()
+    volumeraw = df.iloc[:, settings['volumecol']].to_numpy()
+    poes = df.iloc[:, settings['poescol']].to_numpy()
     
-
-    volumeraw = breaths.iloc[:,settings['volumecol']].to_numpy()
-    # poes = breaths['poes'].to_numpy()
-    flow = breaths.iloc[:,settings['flowcol']].to_numpy()
-    time = breaths.iloc[:,settings['timecol']].to_numpy()
-
+    #correct volume
     volumeraw = volumeraw - volumeraw[0]
+    volume = correcttrend(volumeraw)
+
+    #find in and exp peaks
+    endinsp_pts, _ = signal.find_peaks(volume*-1, prominence=0.3)
+    endexp_pts, _ = signal.find_peaks(volume, prominence=0.3)
     
-    volume = correcttrend(volumeraw, breath_path)
-    timecol = np.arange(0, len(flow)-1, dtype=int) / 1000
-    breathcnt = 0
-    
-    peak, _  = signal.find_peaks(volume, prominence=0.25, distance=500, width=0.001)
-    valley, _ = signal.find_peaks(volume*-1, prominence=0.1, height=-0.01, distance=500, width=0.001)
-    ib = ignorebreaths(breath_path, False, settings)
+
+    fb = len(endinsp_pts)/(len(volume[endinsp_pts[0]:endinsp_pts[-1]])/1000)*60
+    ib = ignorebreaths(path, False, settings)
     
     if settings['saverawflowvolume']:
-        fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(15, 10))
-        fig.suptitle("Inputted flow and volume for " + os.path.basename(breath_path), fontsize=15)
-        ax[0].plot(flow)
-        ax[0].set_title("Raw Flow")
-        ax[0].set_ylabel("Flow (L/s)")
-        ax[1].plot(volumeraw)
-        ax[1].set_title("Volume (Uncorrected)")
-        ax[1].set_ylabel("Volume(L)")
-        ax[2].plot(volume)
-        ax[2].set_title("Volume (Corrected)")
-        ax[2].set_ylabel("Volume (L)")
-        ax[2].set_xlabel("Time (ms)")
-        for x in range(3):
-            count=1
-            yl = list(ax[x].get_ylim())
-            for point in valley:
-                ax[x].axvline(x=point, color="grey", ls="--", lw=1)
-                if count != len(valley):
-                    text = " #" + str(count)
-                    ax[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
-                    count+=1
-            if len(ib) > 0:
-                for breathno in ib:
-                    ax[x].axvspan(valley[breathno], valley[breathno + 1], facecolor='gray', alpha=0.2)
+      fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(15, 10))
+      fig.suptitle("Inputted flow and volume for " + os.path.basename(path), fontsize=15)
+      ax[0].plot(flow)
+      ax[0].set_title("Raw Flow")
+      ax[0].set_ylabel("Flow (L/s)")
+      ax[1].plot(poes)
+      ax[1].set_title("Oesophageal Pressure")
+      ax[1].set_ylabel("Peso (cmH2O)")
+      ax[2].plot(volumeraw)
+      ax[2].set_title("Volume (Uncorrected)")
+      ax[2].set_ylabel("Volume(L)")
+      ax[3].plot(volume)
+      ax[3].set_title("Volume (Corrected)")
+      ax[3].set_ylabel("Volume (L)")
+      ax[3].set_xlabel("Time (ms)")
+      for x in range(4):
+          count=1
+          yl = list(ax[x].get_ylim())
+          for point in endinsp_pts:
+              ax[x].axvline(x=point, color="grey", ls="--", lw=1)
+              if count != len(endinsp_pts):
+                  text = " #" + str(count)
+                  ax[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
+                  count+=1
+          if len(ib) > 0:
+              for breathno in ib:
+                  ax[x].axvspan(endinsp_pts[breathno], endinsp_pts[breathno + 1], facecolor='gray', alpha=0.2)
+    pdf.savefig()
+    plt.close()
+
+    totalexpbreaths = pd.DataFrame(columns=['flow', 'volume', 'poes', 'percent'])
+    expcount = 0
+    for point in range(0, len(endinsp_pts)-1):
+        if point not in ib:
+            expcount+=1
+            expbreath = pd.DataFrame({'flow':flow[endinsp_pts[point]:endexp_pts[point]].squeeze(),
+                                'volume':volume[endinsp_pts[point]:endexp_pts[point]].squeeze(),
+                                'poes':poes[endinsp_pts[point]:endexp_pts[point]].squeeze()[::-1],
+                                'percent':volume[endinsp_pts[point]:endexp_pts[point]].squeeze()/(volume[endinsp_pts[point]:endexp_pts[point]]).squeeze()[-1]})
+            mask = expbreath['flow'] < 0 
+            expbreath = expbreath[~mask]
+            totalexpbreaths = (expbreath.copy() if totalexpbreaths.empty else totalexpbreaths.copy() if expbreath.empty
+        else pd.concat([expbreath, totalexpbreaths]) # if both DataFrames non empty
+        )
+        totalexpbreaths['percent'] = totalexpbreaths['percent'].round(2)
+        averageexpbreath = totalexpbreaths.groupby(['percent']).mean().reset_index()
 
 
-        pdf.savefig()
-        plt.close()
-    
-    # for each peak in the volume trace, separates into inspiration and expiration
-    for point in range(len(valley)-1):
-        breathcnt += 1
-        exp = {'time':(timecol[valley[point]:peak[point]]).squeeze(), 
-               'flow':(flow[valley[point]:peak[point]]).squeeze(),
-               'volume':(volume[valley[point]:peak[point]]).round(3).squeeze()}
-        insp = {'time':(timecol[peak[point]:valley[point+1]+1]).squeeze(),
-                'flow':(flow[peak[point]:valley[point+1]]).squeeze(),
-                'volume':(volume[peak[point]:valley[point+1]]).round(3).squeeze()}
-        # enters everything into a ordered dict by breath number
+    totalinspbreaths = pd.DataFrame(columns=['flow', 'volume', 'poes', 'percent'])
+    inspcount = 0
+    for point in range(0, len(endinsp_pts)-1):
+        if point not in ib:
+            inspcount+=1
+            inspbreath = pd.DataFrame({'flow':flow[endexp_pts[point]:endinsp_pts[point+1]].squeeze(),
+                                'volume':volume[endexp_pts[point]:endinsp_pts[point+1]].squeeze(),
+                                'poes':poes[endexp_pts[point]:endinsp_pts[point+1]].squeeze()[::-1],
+                                'percent':volume[endexp_pts[point]:endinsp_pts[point+1]].squeeze()/(volume[endexp_pts[point]:endinsp_pts[point+1]]).squeeze()[0]})
+            mask = inspbreath['flow'] > 0 
+            inspbreath = inspbreath[~mask]
+            totalinspbreaths = (inspbreath.copy() if totalinspbreaths.empty else totalinspbreaths.copy() if inspbreath.empty
+        else pd.concat([inspbreath, totalinspbreaths]) # if both DataFrames non empty
+        )
+        totalinspbreaths['percent'] = totalinspbreaths['percent'].round(2)
+        averageinspbreath = totalinspbreaths.groupby(['percent']).mean().reset_index()
 
-        individualbreath = OrderedDict([('number', breathcnt),
-                             ('name','Breath #' + str(breathcnt)), 
-                             ('expiration', exp),
-                             ('inspiration', insp), 
-                             ('time', np.concatenate((insp["time"], exp["time"])).squeeze()), 
-                             ('flow', np.concatenate((insp["flow"], exp["flow"])).squeeze()),
-                             ('volume', np.concatenate((insp["volume"], exp["volume"])).squeeze()),
-                             ('breathcnt', breathcnt)])
-        if breathcnt not in ib:
-            totalbreaths[breathcnt] = individualbreath
-        # else: print("excluding breath #" + str(breathcnt))        
-    
-    # print(len(totalbreaths))
+    averageexpbreath['time'] = (averageexpbreath['volume'].diff() / averageexpbreath['flow']).cumsum()
+    averageinspbreath['time'] = (averageinspbreath['volume'].diff() / abs(averageinspbreath['flow'])).cumsum()
+    averageexpbreath.loc[0, 'time'] = 0
+    averageinspbreath.loc[0, 'time'] = 0
 
-    vt = []
-    end_vol = []
-    start_vol = []
-    for breath in totalbreaths:
-        vt.append(abs(totalbreaths[breath]['expiration']['volume'][-1]))
-        end_vol = totalbreaths[breath]['expiration']['volume'][-1]
-        start_vol = totalbreaths[breath]['expiration']['volume'][0]
-    vt = sum(vt) / len(vt)
-    
-    end_vol = end_vol.mean()
-    start_vol = start_vol.mean()
-    
-    inspiredbreath = pd.DataFrame()
-    for breath in totalbreaths:
-        vt1 = abs(totalbreaths[breath]['inspiration']['volume'][0])
-        insp_df = pd.DataFrame({'flow': totalbreaths[breath]['inspiration']['flow'], 'volume': totalbreaths[breath]['inspiration']['volume']})
-        insp_df['percent'] = (insp_df['volume'] / vt1).round(3)
-        insp_df = insp_df.groupby(insp_df['percent']).mean().reset_index()
-        insp_df.reset_index()
-        inspiredbreath = pd.concat([inspiredbreath, insp_df])
+    averageexpbreath.loc[0, 'flow'] = 0
+    averageexpbreath.loc[averageexpbreath.index[-1], 'flow'] = 0
+    averageinspbreath.loc[0, 'flow'] = 0
+    averageinspbreath.loc[averageinspbreath.index[-1], 'flow'] = 0
 
-    inspiredbreath = inspiredbreath.groupby(inspiredbreath['percent']).mean().reset_index()
-    inspiredbreath['volume'] = inspiredbreath['percent'] * vt
-
-    expiredbreath = pd.DataFrame()
-    ex_df = pd.DataFrame()
-    for breath in totalbreaths:
-        vt2 = abs(totalbreaths[breath]['expiration']['volume'][-1])
-        ex_df = pd.DataFrame({'flow': totalbreaths[breath]['expiration']['flow'], 'volume': totalbreaths[breath]['expiration']['volume'].round(2)})
-        ex_df['percent'] = (ex_df['volume'] / vt2)
-        ex_df['volume'].round(3)
-        expiredbreath = pd.concat([expiredbreath, ex_df])
-    
-    expiredbreath.groupby(expiredbreath['percent']).mean().reset_index()
-    expiredbreath['volume'] = (expiredbreath['percent'] * vt)
-
-    te = []
-    ti = []
-
-    for breath in totalbreaths:
-        breath_te = abs(totalbreaths[breath]['expiration']['time'][-1]) - abs(totalbreaths[breath]['expiration']['time'][0])
-        te.append(breath_te)
-
-    for breath in totalbreaths:
-        breath_ti = abs(totalbreaths[breath]['inspiration']['time'][-1]) - abs(totalbreaths[breath]['inspiration']['time'][0])
-        ti.append(breath_ti)
-    
+    # averageexpbreath.loc[averageinspbreath.index[-1], 'poes'] = averageinspbreath['poes'].iloc[-1]
+    # averageinspbreath.loc[0, 'poes'] = averageexpbreath['poes'].iloc[0]
     
 
-    exptime = (sum(te) / len(te)).round(2)
-    insptime = (sum(ti) / len(ti)).round(2)
 
-    fb = 60 / (exptime + insptime)
-    
-    ve = fb * vt
 
-    expiredbreath['percent'] = expiredbreath['percent'].round(2)
-    expiredbreath = expiredbreath.groupby(expiredbreath['percent']).mean().reset_index()
-    inspiredbreath['percent'] = inspiredbreath['percent'].round(2)
-    inspiredbreath = inspiredbreath.groupby(inspiredbreath['percent']).mean().reset_index()
+    averageexpbreath.loc[averageexpbreath.index[-1], 'volume'] = averageinspbreath['volume'].iloc[-1]
+    averageinspbreath.loc[0, 'volume'] = averageexpbreath['volume'].iloc[0]
+    # averageinspbreath = averageinspbreath.replace('0', 0)
+    averageexpbreath = averageexpbreath.dropna()
+    averageinspbreath = averageinspbreath.dropna()
+    #TODO fix alignment of volume/poes
     
-    expiredbreath.loc[0, 'flow'] = 0
-    expiredbreath.loc[expiredbreath.index[-1],'flow'] = 0
-    inspiredbreath.loc[inspiredbreath.index[-1],'flow'] = 0
-    inspiredbreath.loc[0, 'flow'] = 0
-    expiredbreath = expiredbreath.reset_index()
-    inspiredbreath = inspiredbreath.reset_index()
-    return inspiredbreath, expiredbreath, exptime, insptime, fb, vt, ve
+    vt = averageexpbreath['volume'].iloc[-1]
+    ve = fb * vt  
+
+    te = averageexpbreath['time'].iloc[-1].round(3)
+    ti = averageinspbreath['time'].iloc[-1].round(3)
+
+    averageexpbreath['volume'] = averageexpbreath['volume'] + erv 
+    averageinspbreath['volume'] = averageinspbreath['volume'] + erv 
+
+    return averageexpbreath, averageinspbreath, te, ti, fb, vt, ve
 
 def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, settings):
-    
+
     count=0
     avg_expired.volume = avg_expired.volume.values[::-1]
-    avg_expired.volume = avg_expired.volume + erv
-    avg_inspired.volume = avg_inspired.volume + erv
+    avg_inspired.volume = avg_inspired.volume.values[::-1]
+    # avg_expired.volume = avg_expired.volume + erv
+    # avg_inspired.volume = avg_inspired.volume + erv
 
     if settings['saveflowvolumeloops']:
         plt.plot(mefv['volume'], mefv['flow'])
@@ -279,6 +250,7 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
         plt.xlabel("Volume (L)")
         plt.ylabel("Flow (L/s)")
         plt.title("MEFV and flow volume loops for " + os.path.basename(filename), fontsize=15)
+
         pdf.savefig()
         plt.close()
 
@@ -287,8 +259,8 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
         averagefv.to_excel(pjoin(settings['inputfolder'], "output", "data", "AverageFVloop.xlsx"), index=False)
 
     for i in range(len(avg_expired)):
-        tvol = avg_expired.volume[i].round(2)
-        tflow = avg_expired['flow'][i]
+        tvol = avg_expired.volume.iloc[i].round(2)
+        tflow = avg_expired['flow'].iloc[i]
         if tvol in mefv.volume.values:
             mefv_flow = mefv[mefv['volume']==tvol].round(2)['flow'].values[0]
             if tflow > mefv_flow: count+=1
@@ -315,33 +287,80 @@ def get_vecap(mefv,vt,te,ti,erv,irv):
     fbmax = 60/ttotmax
     vecap = vt * fbmax
     
-
     return vecap
 
-def mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, filename, pdf, settings):
+def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf, settings):
+    x_eelv, x_eilv, y_eelv, y_eilv, frc_x, x_ccw_eilv, x_ccw_eelv = wob.get_points(avgexp_df, age, sex, frc)
+    # print(avginsp_df)
+    point_a = (x_eilv, y_eilv) #end insp
+    point_b = (x_eelv, y_eelv) #end exp
+    point_c = (frc_x, frc) #frc
+    point_d = (x_ccw_eilv, y_eilv) #ccw end insp
+    point_e = (x_ccw_eelv, y_eelv) #ccw end exp
+    # avginsp_df['volume'] = avginsp_df['volume'] + erv
+    # avgexp_df['volume'] = avgexp_df['volume'] + erv
+    # plt.plot(point_a[0], point_a[1])
+    # print(frc, erv)
+
+    # plt.plot(avgexp_df['poes'], avgexp_df['volume'], color='r')
+    # plt.plot(avginsp_df['poes'], avginsp_df['volume'], color='b')
+    # plt.scatter(point_a[0], point_a[1], color= 'r')
+    # plt.scatter(point_b[0], point_b[1], color= 'b')
+    
+    # pdf.savefig()
+    # plt.close()
+    # print("WB plot saved")
+    # insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
+    
+    if frc >= erv:
+        insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
+    else:
+        insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
+    if settings['savewobplots']:
+        pdf.savefig()
+        plt.close()
+
+    insp_res_wob = insp_res * 0.09806 * fb
+    insp_elas_wob = insp_elastic * 0.09806 * fb
+    exp_res_wob = exp_res * 0.09806 * fb
+    exp_elas_wob = exp_elastic * 0.09806 * fb
+
+    return insp_res_wob, insp_elas_wob, exp_res_wob, exp_elas_wob
+
+def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, filename, ex_stage, pdf, settings):
     
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
     # avg_expired_vecap = avgexp_df.copy()
 
     fvc = spirometry.get_fvc(mefv).round(2)
-    
+    frc = (fvc - rest_ic)[0]
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
+    # avginsp_df['volume'] = avginsp_df['volume'] + erv
+    # avgexp_df['volume'] = avgexp_df['volume'] + erv
+    # avgexp_df['volume'] = avgexp_df['volume'].values[::-1]
+    # avginsp_df['volume'] = avginsp_df['volume'].iloc[::-1]
+    # avgexp_df['volume'] = avgexp_df['volume'].iloc[::-1]
+
+    print("\t\t\t Determining presence of EFL and saving FV loop")
     efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
     vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
+    print("\t\t\t Calculating work of breathing and saving the appropriate plot")
+    insp_res, insp_elastic, exp_res, exp_elastic = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
     
-    
-    mechanics = {'Fb': [fb.round(2)],
+    mechanics = {'Fb': [round(fb, 2)],
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
                  'IC': [ic.round(2)],
                  'ERV': [erv.round(2)],
                  'IRV': [irv.round(2)],
-                 'Ti': [ti],
-                 'Te': [te],
+                 'IR_wob': [insp_res],
+                 'IE_wob': [insp_elastic],
+                 'ER_wob': [exp_res],
+                 'EE_wob': [exp_elastic],
                  'VEcap': [vecap],
                  'VEcap(%)': [(ve / vecap)],
                  'EFL': [efl],
@@ -356,6 +375,7 @@ def listdir_nohidden(path):
         if not f.startswith('.'):
             yield f
 
+
 def analyse(settings):
 
     check_dir(pjoin(settings['inputfolder'], "output", "data"))
@@ -369,25 +389,36 @@ def analyse(settings):
     breaths_dir = sorted(listdir_nohidden(pjoin(inputfolder, "breaths")))
     ic_dir = sorted(listdir_nohidden(pjoin(inputfolder, "ic")))
 
+    print("\t Calculating MEFV")
     mefv = spirometry.mefv_curve(fvcfolder, settings)
+    rest_ic = get_rest_ic(os.path.join(settings['inputfolder'], "rest ic"), settings)
+    fvc = spirometry.get_fvc(mefv).round(2)
 
     outputdata = pd.DataFrame()
     for f in range(len(breaths_dir)):
         file_name = breaths_dir[f]
-        if file_name.endswith(".txt"): 
+        if file_name.endswith(".txt"):
+            print("\t Loading " + file_name)
+            ex_stage = file_name.strip('.txt')[-3:] 
             input_path = pjoin(inputfolder, "breaths", file_name)
         ic_file = ic_dir[f]
         if ic_file.endswith(".txt"):
             ic_input = pjoin(inputfolder, "ic", ic_file)  
         
         with PdfPages(pjoin(outputfolder, "figures", file_name +'_plots.pdf')) as pdf:
+            print("\t\t Calculating IC")
             ic = get_ic(ic_input, pdf, settings).round(2)
-            avginsp_df, avgexp_df, te, ti, fb, vt, ve = averagebreaths(input_path, pdf, settings)
-            df = mechanics(avginsp_df, avgexp_df, ic, mefv, vt, fb, ti, te, ve, file_name,  pdf, settings)
-        
+            erv = fvc - ic
+            print("\t\t Calculating average breath") 
+            avgexp_df, avginsp_df, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)
+            
+            print("\t\t Calculating breathing mechanics")
+            df = mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file_name, ex_stage, pdf, settings)
+            
         outputdata = pd.concat([outputdata, df])
     
     if settings['saveoutput']:
+        print("\t Saving all data")
         outputdata.to_excel(pjoin(outputfolder, "data", "ExerciseData.xlsx"), index=False)
-
+        print("Analysis complete, find data and figures at: " + outputfolder)
     return outputdata
