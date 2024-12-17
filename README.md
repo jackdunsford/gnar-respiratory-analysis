@@ -33,7 +33,7 @@ The input folder must match the example folder provided in the repo, the folder 
 
 To allow for the code to run each stage of exercise in order, use sequential 3 digit numbering when naming the the breaths and ic files (I use the watts for that stage of exercise). For example, participantID_B020W.txt or participantID_IC160W.txt.
 
-**Time series data (only export time, flow, volume):**
+**Time series data (export all channels):**
 
 * The "breaths" folder should contain ~30 seconds of fairly clean breaths towards the end of that stage of exercise (ideally last 30 seconds). Do not include the IC breath in this. Start selection on an inspiration and end on an expiration as shown. ![here](https://github.com/jackdunsford/gnar-respiratory-analysis/blob/main/instructional_images/breath.png)
 
