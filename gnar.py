@@ -415,8 +415,10 @@ def analyse(settings):
             
             print("\t\t Calculating breathing mechanics")
             df = mechanics(avginsp_df, avgexp_df, ic, rest_ic, te, ti, vt, fb, ve, file_name, ex_stage, pdf, settings)
-            
-        outputdata = pd.concat([outputdata, df])
+        if settings['saveaveragedata']:
+            averagefv = pd.concat([avg_expired, avg_inspired])
+            averagefv.to_excel(pjoin(settings['inputfolder'], "output", "data", file_name + "AverageFVloop.xlsx"), index=False)
+            outputdata = pd.concat([outputdata, df])
     
     if settings['saveoutput']:
         print("\t Saving all data")
