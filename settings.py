@@ -30,7 +30,8 @@ settings = {
     "saveaveragedata": True, #saves an excel with the data of the average flow volume loop for each stage
     
     "age": 34,
-    "sex": 1
+    "sex": 1,
+    "fvc": 5.68
 }
 
 if __name__ == '__main__':

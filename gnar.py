@@ -327,13 +327,13 @@ def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf
 
     return insp_res_wob, insp_elas_wob, exp_res_wob, exp_elas_wob
 
-def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, filename, ex_stage, pdf, settings):
+def mechanics(avginsp_df, avgexp_df, ic, rest_ic, te, ti, vt, fb, ve, filename, ex_stage, pdf, settings):
     
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
     # avg_expired_vecap = avgexp_df.copy()
 
-    fvc = spirometry.get_fvc(mefv).round(2)
+    fvc = settings['fvc']
     frc = (fvc - rest_ic)[0]
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
@@ -345,8 +345,8 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
     # avgexp_df['volume'] = avgexp_df['volume'].iloc[::-1]
 
     print("\t\t\t Determining presence of EFL and saving FV loop")
-    efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
-    vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
+    # efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
+    # vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
     print("\t\t\t Calculating work of breathing and saving the appropriate plot")
     insp_res, insp_elastic, exp_res, exp_elastic = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
@@ -360,11 +360,11 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
                  'IR_wob': [insp_res],
                  'IE_wob': [insp_elastic],
                  'ER_wob': [exp_res],
-                 'EE_wob': [exp_elastic],
-                 'VEcap': [vecap],
-                 'VEcap(%)': [(ve / vecap)],
-                 'EFL': [efl],
-                 'EFL%': [efl_percent]}
+                 'EE_wob': [exp_elastic]}
+                #  'VEcap': [vecap],
+                #  'VEcap(%)': [(ve / vecap)],
+                #  'EFL': [efl],
+                #  'EFL%': [efl_percent]}
 
     df = pd.DataFrame(mechanics)
     
@@ -390,9 +390,10 @@ def analyse(settings):
     ic_dir = sorted(listdir_nohidden(pjoin(inputfolder, "ic")))
 
     print("\t Calculating MEFV")
-    mefv = spirometry.mefv_curve(fvcfolder, settings)
+    # mefv = spirometry.mefv_curve(fvcfolder, settings)
     rest_ic = get_rest_ic(os.path.join(settings['inputfolder'], "rest ic"), settings)
-    fvc = spirometry.get_fvc(mefv).round(2)
+    # fvc = spirometry.get_fvc(mefv).round(2)
+    fvc = settings['fvc']
 
     outputdata = pd.DataFrame()
     for f in range(len(breaths_dir)):
@@ -413,7 +414,7 @@ def analyse(settings):
             avgexp_df, avginsp_df, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)
             
             print("\t\t Calculating breathing mechanics")
-            df = mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file_name, ex_stage, pdf, settings)
+            df = mechanics(avginsp_df, avgexp_df, ic, rest_ic, te, ti, vt, fb, ve, file_name, ex_stage, pdf, settings)
             
         outputdata = pd.concat([outputdata, df])
     
