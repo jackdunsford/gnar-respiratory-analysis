@@ -1,21 +1,27 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from collections import OrderedDict
 import scipy as sp
 from os.path import join as pjoin
 from scipy import signal
-import seaborn as sns
 import scipy as sp
 import os
 from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
-import glob
 import wob
 
-def check_dir(path):
+def check_make_dir(path):
     if not os.path.exists(path): 
         os.makedirs(path)
+
+def check_dir(settings):
+    input_dir = settings['inputfolder']
+    if os.path.isdir(input_dir):
+        filelist=['breaths','ic','fvc', 'output', 'rest ic']
+        for file in filelist:
+            if not os.path.isdir(os.path.join(input_dir, file)):
+                print(os.path.join(input_dir, file))
+                raise Exception("Missing folders from input path")
 
 def ignorebreaths(inputfile, foric, settings):
     curfile =  os.path.basename(inputfile)
@@ -135,8 +141,8 @@ def average_breath(path, erv, pdf, settings):
     ib = ignorebreaths(path, False, settings)
     
     if settings['saverawflowvolume']:
-      fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(15, 10))
-      fig.suptitle("Inputted flow and volume for " + os.path.basename(path), fontsize=15)
+      fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(15, 10), constrained_layout=True)
+      fig.suptitle("Input flow and volume for " + os.path.basename(path), fontsize=15)
       ax[0].plot(flow)
       ax[0].set_title("Raw Flow")
       ax[0].set_ylabel("Flow (L/s)")
@@ -210,15 +216,10 @@ def average_breath(path, erv, pdf, settings):
     averageinspbreath.loc[0, 'flow'] = 0
     averageinspbreath.loc[averageinspbreath.index[-1], 'flow'] = 0
 
-    # averageexpbreath.loc[averageinspbreath.index[-1], 'poes'] = averageinspbreath['poes'].iloc[-1]
-    # averageinspbreath.loc[0, 'poes'] = averageexpbreath['poes'].iloc[0]
-    
-
-
 
     averageexpbreath.loc[averageexpbreath.index[-1], 'volume'] = averageinspbreath['volume'].iloc[-1]
     averageinspbreath.loc[0, 'volume'] = averageexpbreath['volume'].iloc[0]
-    # averageinspbreath = averageinspbreath.replace('0', 0)
+
     averageexpbreath = averageexpbreath.dropna()
     averageinspbreath = averageinspbreath.dropna()
     #TODO fix alignment of volume/poes
@@ -232,6 +233,24 @@ def average_breath(path, erv, pdf, settings):
     averageexpbreath['volume'] = averageexpbreath['volume'] + erv 
     averageinspbreath['volume'] = averageinspbreath['volume'] + erv 
 
+    averageexpbreath['time'] = (averageexpbreath['volume'].diff() / averageexpbreath['flow']).cumsum()
+    averageinspbreath['time'] = (averageinspbreath['volume'].diff() / abs(averageinspbreath['flow'])).cumsum()
+    averageexpbreath.loc[0, 'time'] = 0
+    averageinspbreath.loc[0, 'time'] = 0
+
+    averageexpbreath.loc[0, 'flow'] = 0
+    averageexpbreath.loc[averageexpbreath.index[-1], 'flow'] = 0
+    averageinspbreath.loc[0, 'flow'] = 0
+    averageinspbreath.loc[averageinspbreath.index[-1], 'flow'] = 0
+
+    poes_start = (averageexpbreath['poes'].iloc[0] + averageinspbreath['poes'].iloc[0]) / 2
+    poes_end = (averageexpbreath['poes'].iloc[-1] + averageinspbreath['poes'].iloc[-1]) / 2
+    averageexpbreath.loc[0, 'poes'] = poes_start
+    averageinspbreath.loc[0, 'poes'] = poes_start
+
+    averageexpbreath.loc[averageexpbreath.index[-1], 'poes'] = poes_end
+    averageinspbreath.loc[averageinspbreath.index[-1], 'poes'] = poes_end
+
     return averageexpbreath, averageinspbreath, te, ti, fb, vt, ve
 
 def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, settings):
@@ -239,8 +258,6 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, erv, filename, pdf, setting
     count=0
     avg_expired.volume = avg_expired.volume.values[::-1]
     avg_inspired.volume = avg_inspired.volume.values[::-1]
-    # avg_expired.volume = avg_expired.volume + erv
-    # avg_inspired.volume = avg_inspired.volume + erv
 
     if settings['saveflowvolumeloops']:
         plt.plot(mefv['volume'], mefv['flow'])
@@ -297,20 +314,6 @@ def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf
     point_c = (frc_x, frc) #frc
     point_d = (x_ccw_eilv, y_eilv) #ccw end insp
     point_e = (x_ccw_eelv, y_eelv) #ccw end exp
-    # avginsp_df['volume'] = avginsp_df['volume'] + erv
-    # avgexp_df['volume'] = avgexp_df['volume'] + erv
-    # plt.plot(point_a[0], point_a[1])
-    # print(frc, erv)
-
-    # plt.plot(avgexp_df['poes'], avgexp_df['volume'], color='r')
-    # plt.plot(avginsp_df['poes'], avginsp_df['volume'], color='b')
-    # plt.scatter(point_a[0], point_a[1], color= 'r')
-    # plt.scatter(point_b[0], point_b[1], color= 'b')
-    
-    # pdf.savefig()
-    # plt.close()
-    # print("WB plot saved")
-    # insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
     
     if frc >= erv:
         insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
@@ -331,26 +334,19 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
     
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
-    # avg_expired_vecap = avgexp_df.copy()
 
     fvc = spirometry.get_fvc(mefv).round(2)
     frc = (fvc - rest_ic)[0]
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
-    # avginsp_df['volume'] = avginsp_df['volume'] + erv
-    # avgexp_df['volume'] = avgexp_df['volume'] + erv
-    # avgexp_df['volume'] = avgexp_df['volume'].values[::-1]
-    # avginsp_df['volume'] = avginsp_df['volume'].iloc[::-1]
-    # avgexp_df['volume'] = avgexp_df['volume'].iloc[::-1]
-
     print("\t\t\t Determining presence of EFL and saving FV loop")
     efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
     vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
-    print("\t\t\t Calculating work of breathing and saving the appropriate plot")
+    print("\t\t\t Calculating work of breathing and saving the Hedstrand plot")
     insp_res, insp_elastic, exp_res, exp_elastic = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
-    
+    total_wob = insp_res + insp_elastic + exp_res + exp_elastic
     mechanics = {'Fb': [round(fb, 2)],
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
@@ -361,6 +357,7 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
                  'IE_wob': [insp_elastic],
                  'ER_wob': [exp_res],
                  'EE_wob': [exp_elastic],
+                 'wob': [total_wob],
                  'VEcap': [vecap],
                  'VEcap(%)': [(ve / vecap)],
                  'EFL': [efl],
@@ -371,21 +368,21 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
     return df
 
 def listdir_nohidden(path):
-    for f in os.listdir(path):
+    filenames = os.listdir(path)
+    for f in filenames:
         if not f.startswith('.'):
             yield f
 
 
 def analyse(settings):
-
-    check_dir(pjoin(settings['inputfolder'], "output", "data"))
-    check_dir(pjoin(settings['inputfolder'], "output", "figures"))
+    check_dir(settings)
+    check_make_dir(pjoin(settings['inputfolder'], "output", "data"))
+    check_make_dir(pjoin(settings['inputfolder'], "output", "figures"))
 
     inputfolder = settings['inputfolder']
     
     fvcfolder = pjoin(inputfolder, "fvc")
     outputfolder = pjoin(inputfolder, "output")
-    
     breaths_dir = sorted(listdir_nohidden(pjoin(inputfolder, "breaths")))
     ic_dir = sorted(listdir_nohidden(pjoin(inputfolder, "ic")))
 
@@ -419,6 +416,6 @@ def analyse(settings):
     
     if settings['saveoutput']:
         print("\t Saving all data")
-        outputdata.to_excel(pjoin(outputfolder, "data", "ExerciseData.xlsx"), index=False)
+        outputdata.to_excel(pjoin(outputfolder, "data",  "exercise_data.xlsx"), index=False)
         print("Analysis complete, find data and figures at: " + outputfolder)
     return outputdata
