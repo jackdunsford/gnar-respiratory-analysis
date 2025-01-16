@@ -1,8 +1,8 @@
 import gnar
 import os
-
+ 
 settings = {
-    "inputfolder": r'/Users/jackdunsford/Desktop/02-119',
+    "inputfolder": r'/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/GNAR/sample_data/01-101',
     
     "timecol":0,
     "flowcol":17,
@@ -11,7 +11,7 @@ settings = {
     "pgascol":14,
     #enter the name of the file and the breath number you wish to exclude from the IC volume drift correction
     "ignoreic": [
-        # ["01-101_V3_IC160.txt", [7,9,10,11]]
+        ["01-101_V3_IC160.txt", [7,9,10,11]]
     ],
     #enter the name of the file and the breath number you wish to exclude from volume drift correction and averaging
     "ignorebreath":[
@@ -28,9 +28,6 @@ settings = {
     "savemefv": True, #saves a figure of the MEFV curve with all FVCs
     "savemefvdata": True, #saves an excel with fvc, fev1, pef, slope ratio, and data for the MEFV curve
     "saveaveragedata": True, #saves an excel with the data of the average flow volume loop for each stage
-    
-    "age": 34,
-    "sex": 1
 }
 
 if __name__ == '__main__':

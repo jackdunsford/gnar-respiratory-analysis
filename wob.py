@@ -27,24 +27,24 @@ def plot_triangle_and_calculate_area(p1, p2, p3, col, edge):
     plt.fill(triangle_x[:-1], triangle_y[:-1], alpha=0.6, label="Filled Triangle", color=col, edgecolor=edge)
     return area
 
-def get_points(averageexpbreath, age, sex, frc_y):
+def get_points(averageexpbreath, frc_y):
     y_eelv = averageexpbreath['volume'].iloc[0]
     y_eilv = averageexpbreath['volume'].iloc[-1]
     x_eelv = averageexpbreath['poes'].iloc[0]
     x_eilv = averageexpbreath['poes'].iloc[-1]
 
-    if sex == 1:
-        if age < 40:
-            ccw_slope = 0.204
-        elif age > 40 < 55:
-            ccw_slope = 0.174
-        else: ccw_slope = 0.149
-    else:
-        if age < 40:
-            ccw_slope = 0.187
-        elif age > 40 < 55:
-            ccw_slope = 0.153
-        else: ccw_slope = 0.120
+    # if sex == 1:
+    #     if age < 40:
+    #         ccw_slope = 0.204
+    #     elif age > 40 < 55:
+    #         ccw_slope = 0.174
+    #     else: ccw_slope = 0.149
+    # else:
+    #     if age < 40:
+    #         ccw_slope = 0.187
+    #     elif age > 40 < 55:
+    #         ccw_slope = 0.153
+    #     else: ccw_slope = 0.120
 
     # ccw_slope = 1/ccw_slope
 
@@ -52,24 +52,24 @@ def get_points(averageexpbreath, age, sex, frc_y):
     line1_start = (x_eilv, y_eilv)  # (x, y) of start point of Line 1
     line1_end = (x_eelv, y_eelv)        # (x, y) of end point of Line 1
     y_intersection = frc_y              # y-coordinate of the intersection
-    slope_line2 = ccw_slope                  # Slope of Line 2
+    # slope_line2 = ccw_slope                  # Slope of Line 2
     y2_start = y_eilv               # Start y-coordinate of Line 2
     y2_end = y_eelv                     # End y-coordinate of Line 2
 
     # Equation of Line 1: y = m1 * x + b1
-    m1 = (line1_end[1] - line1_start[1]) / (line1_end[0] - line1_start[0])
-    b1 = line1_start[1] - m1 * line1_start[0]
+    # m1 = (line1_end[1] - line1_start[1]) / (line1_end[0] - line1_start[0])
+    # b1 = line1_start[1] - m1 * line1_start[0]
 
-    # Equation of Line 2: y = m2 * x + b2
-    b2 = y_intersection - slope_line2 * (line1_start[0] + (y_intersection - b1) / m1)  # Use intersection logic
+    # # Equation of Line 2: y = m2 * x + b2
+    # b2 = y_intersection - slope_line2 * (line1_start[0] + (y_intersection - b1) / m1)  # Use intersection logic
 
-    # Calculate x-coordinate of intersection
-    frc_x = (y_intersection - b1) / m1
+    # # Calculate x-coordinate of intersection
+    # frc_x = (y_intersection - b1) / m1
 
-    x_ccw_eilv = (y_eilv - frc_y) / slope_line2 + frc_x
-    x_ccw_eelv = (y_eelv - frc_y) / slope_line2 + frc_x
+    # x_ccw_eilv = (y_eilv - frc_y) / slope_line2 + frc_x
+    # x_ccw_eelv = (y_eelv - frc_y) / slope_line2 + frc_x
 
-    return x_eelv, x_eilv, y_eelv, y_eilv, frc_x, x_ccw_eilv, x_ccw_eelv
+    return x_eelv, x_eilv, y_eelv, y_eilv
 
 # Function to calculate intersection of two line segments
 def line_intersection(p1, p2, q1, q2):
@@ -209,26 +209,30 @@ def hedstrand(averageexpbreath, averageinspbreath, point_a, point_b, ex_stage, p
         insp_curve_area += 0.5 * np.abs(np.dot(vertices[:, 0], np.roll(vertices[:, 1], 1)) -
                                     np.dot(vertices[:, 1], np.roll(vertices[:, 0], 1)))
 
-    return insp_curve_area, insp_elastic, exp_curve_area, 0
+    return insp_curve_area, insp_elastic, exp_curve_area
 
-def modified_cambell(averageexpbreath, averageinspbreath, frc, ex_stage, pdf, settings):
-    x_eelv, x_eilv, y_eelv, y_eilv, frc_x, x_ccw_eilv, x_ccw_eelv = get_points(averageexpbreath, 25, 1, frc)
-    point_a = (x_eilv, y_eilv) #end insp
-    point_b = (x_eelv, y_eelv) #end exp
-    point_c = (frc_x, frc) #frc
-    point_d = (x_ccw_eilv, y_eilv) #ccw end insp
-    point_e = (x_ccw_eelv, y_eelv) #ccw end exp
+
+"""
+This version will only output the Hedstrand figure. Modified Campbell is currently being developed.
+"""
+# def modified_cambell(averageexpbreath, averageinspbreath, frc, ex_stage, pdf, settings):
+#     x_eelv, x_eilv, y_eelv, y_eilv = get_points(averageexpbreath, 25, 1, frc)
+#     point_a = (x_eilv, y_eilv) #end insp
+#     point_b = (x_eelv, y_eelv) #end exp
+#     point_c = (frc_x, frc) #frc
+#     point_d = (x_ccw_eilv, y_eilv) #ccw end insp
+#     point_e = (x_ccw_eelv, y_eelv) #ccw end exp
     
-    plt.figure(figsize=(5,7))
-    plt.title("Modified Campbell diagram - " + ex_stage + "W")
-    plt.ylabel("Volume (L)")
-    plt.xlabel("Esophageal Pressure (cmH2O)")
-    plt.plot(averageexpbreath['poes'], averageexpbreath['volume'], color='black')
-    plt.plot(averageinspbreath['poes'], averageinspbreath['volume'], color='black')
-    plt.scatter(frc_x, frc)
-    exp_elastic = plot_triangle_and_calculate_area((point_e),(point_c), (point_b), 'y', 'black')
-    insp_elastic = plot_triangle_and_calculate_area((point_a),(point_c), (point_d), 'g', 'black')
-    exp_res = exp_resistive(averageexpbreath, point_b, point_c, point_d)
-    insp_res = insp_resistive(averageinspbreath, point_a, point_b, point_c, point_e)
+#     plt.figure(figsize=(5,7))
+#     plt.title("Modified Campbell diagram - " + ex_stage + "W")
+#     plt.ylabel("Volume (L)")
+#     plt.xlabel("Esophageal Pressure (cmH2O)")
+#     plt.plot(averageexpbreath['poes'], averageexpbreath['volume'], color='black')
+#     plt.plot(averageinspbreath['poes'], averageinspbreath['volume'], color='black')
+#     plt.scatter(frc_x, frc)
+#     exp_elastic = plot_triangle_and_calculate_area((point_e),(point_c), (point_b), 'y', 'black')
+#     insp_elastic = plot_triangle_and_calculate_area((point_a),(point_c), (point_d), 'g', 'black')
+#     exp_res = exp_resistive(averageexpbreath, point_b, point_c, point_d)
+#     insp_res = insp_resistive(averageinspbreath, point_a, point_b, point_c, point_e)
     
-    return insp_res, insp_elastic, exp_res, exp_elastic
+#     return insp_res, insp_elastic, exp_res, exp_elastic

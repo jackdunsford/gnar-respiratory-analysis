@@ -95,6 +95,10 @@ def correcttrendic(volume, input_path, pdf, settings):
                     # axes[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)   
                     axes[x].text(point, yl[0], text, fontsize=8)   
                     count+=1
+            if len(ib) > 0:
+                for breathno in ib:
+                    axes[x].axvspan(valleys[breathno], valleys[breathno + 1], facecolor='gray', alpha=0.2)
+                    
 
         pdf.savefig()
         plt.close()
@@ -306,19 +310,19 @@ def get_vecap(mefv,vt,te,ti,erv,irv):
     
     return vecap
 
-def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf, settings):
-    x_eelv, x_eilv, y_eelv, y_eilv, frc_x, x_ccw_eilv, x_ccw_eelv = wob.get_points(avgexp_df, age, sex, frc)
+def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, ex_stage, pdf, settings):
+    x_eelv, x_eilv, y_eelv, y_eilv = wob.get_points(avgexp_df, frc)
     # print(avginsp_df)
     point_a = (x_eilv, y_eilv) #end insp
     point_b = (x_eelv, y_eelv) #end exp
-    point_c = (frc_x, frc) #frc
-    point_d = (x_ccw_eilv, y_eilv) #ccw end insp
-    point_e = (x_ccw_eelv, y_eelv) #ccw end exp
+    # point_c = (frc_x, frc) #frc
+    # point_d = (x_ccw_eilv, y_eilv) #ccw end insp
+    # point_e = (x_ccw_eelv, y_eelv) #ccw end exp
     
-    if frc >= erv:
-        insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
-    else:
-        insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
+    # if frc >= erv:
+    #     insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
+    # else:
+    insp_res, insp_elastic, exp_res  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
     if settings['savewobplots']:
         pdf.savefig()
         plt.close()
@@ -326,9 +330,9 @@ def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf
     insp_res_wob = insp_res * 0.09806 * fb
     insp_elas_wob = insp_elastic * 0.09806 * fb
     exp_res_wob = exp_res * 0.09806 * fb
-    exp_elas_wob = exp_elastic * 0.09806 * fb
 
-    return insp_res_wob, insp_elas_wob, exp_res_wob, exp_elas_wob
+
+    return insp_res_wob, insp_elas_wob, exp_res_wob
 
 def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, filename, ex_stage, pdf, settings):
     
@@ -345,8 +349,8 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
     vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
     print("\t\t\t Calculating work of breathing and saving the Hedstrand plot")
-    insp_res, insp_elastic, exp_res, exp_elastic = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
-    total_wob = insp_res + insp_elastic + exp_res + exp_elastic
+    insp_res, insp_elastic, exp_res = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, ex_stage, pdf, settings)
+    total_wob = insp_res + insp_elastic + exp_res
     mechanics = {'Fb': [round(fb, 2)],
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
@@ -356,7 +360,6 @@ def mechanics(avginsp_df, avgexp_df, ic, rest_ic, mefv, te, ti, vt, fb, ve, file
                  'IR_wob': [insp_res],
                  'IE_wob': [insp_elastic],
                  'ER_wob': [exp_res],
-                 'EE_wob': [exp_elastic],
                  'wob': [total_wob],
                  'VEcap': [vecap],
                  'VEcap(%)': [(ve / vecap)],
