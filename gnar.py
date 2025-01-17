@@ -10,6 +10,29 @@ from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
 import wob
 
+def add_dataframe_to_pdf(pdf, dataframe, title):
+    fig, ax = plt.subplots(figsize=(8, 6))  # Set figure size
+    ax.axis("tight")
+    ax.axis("off")  # Remove axes
+
+    # Add title if needed
+    ax.set_title(title, fontsize=14, pad=20)
+
+    # Create table from DataFrame
+    table = ax.table(
+        cellText=dataframe.values,
+        colLabels=dataframe.columns,
+        loc="center",
+        cellLoc="center",
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.auto_set_column_width(col=list(range(len(dataframe.columns))))
+
+    # Save figure to PDF
+    pdf.savefig(fig)
+    plt.close(fig)
+
 def check_make_dir(path):
     if not os.path.exists(path): 
         os.makedirs(path)
@@ -131,7 +154,8 @@ def average_breath(path, erv, pdf, settings):
     flow = df.iloc[:, settings['flowcol']].to_numpy()
     volumeraw = df.iloc[:, settings['volumecol']].to_numpy()
     poes = df.iloc[:, settings['poescol']].to_numpy()
-    
+    pgas = df.iloc[:, settings['pgascol']].to_numpy()
+    pdi = pgas - poes
     #correct volume
     volumeraw = volumeraw - volumeraw[0]
     volume = correcttrend(volumeraw)
