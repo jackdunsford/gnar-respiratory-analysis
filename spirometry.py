@@ -57,8 +57,8 @@ def individual_fvc(input_path:str, settings):
     # print(input_path)
     data = pd.read_csv(input_path,
                             delimiter='\t')
-    data = data.iloc[:, [settings['timecol'],settings['flowcol'], settings['volumecol']]]
-    data.columns = ['time', 'flow', 'volume']
+    data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
+    data.columns = ['flow', 'volume']
     # volume= data[settings['volumecol']].to_numpy()
     # # poes = breaths['poes'].to_numpy()
     # flow = data[settings['flowcol']].to_numpy()
@@ -66,8 +66,8 @@ def individual_fvc(input_path:str, settings):
     
     data['volume'] = (data['volume'] - data['volume'][0]).round(2)
     data = data[data['volume'] >= 0]
-    df = data.groupby('volume').mean()
-    individual_mefv = df.drop(['time'], axis=1).reset_index()
+    individual_mefv = data.groupby('volume').mean().reset_index()
+    # individual_mefv = df.drop(['time'], axis=1).reset_index()
     individual_mefv.volume = individual_mefv.volume.values[::-1]
     individual_mefv = individual_mefv.reset_index()
     return individual_mefv
