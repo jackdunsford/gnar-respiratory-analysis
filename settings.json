@@ -1,38 +1,126 @@
 {
-    "inputfolder":"/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/GNAR/sample_data/02-101",
-    "flowcol":17,
-    "volumecol":18,
-    "poescol":13, 
-    "pgascol":14,
-    "ignoreic":[
-        ["02-101_IC160W.txt", [2]]
-        ],
-    "ignorebreath":[
-        ["02-101_B020W.txt", [1,2,6,7,8]],
-        ["02-101_B040W.txt", [4,6,7]],
-        ["02-101_B060W.txt", [5,6,7]],
-        ["02-101_B120W.txt", [5,7,8]],
-        ["02-101_B140W.txt", [6,7,8,9,10,11,12]],
-        ["02-101_B160W.txt", [2,3]],
-        ["02-101_B200W.txt", [4,10,11]]
-        ],
-
+    "inputfolder": "/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/GNAR/sample_data/02-101",
+    "flowcol": 17,
+    "volumecol": 18,
+    "poescol": 13,
+    "pgascol": 14,
     "samplingfrequency": 1000,
-    "peakdistance": 250, 
-    "peakprominence": 0.1,
+    "peakdistance": 250,
+    "peakprominence": "0.1",
     "workrateincrement": 20,
-    "saveiccorrection": "True", 
-    "saverawflowvolume": "True", 
-    "saveflowvolumeloops": "True", 
-    "savewobplots": "True",
-    "saveoutput": "True", 
-    "savemefv": "True", 
-    "savemefvdata": "True", 
-    "saveaveragedata": "True", 
-    "campbelldiagram": "True", 
-    "hedstranddiagram":"True", 
-    "pvintegration":"True", 
-
-    "age":35,
-    "sex":1    
+    "saveiccorrection": true,
+    "saverawflowvolume": true,
+    "saveflowvolumeloops": true,
+    "savewobplots": true,
+    "saveoutput": true,
+    "savemefv": true,
+    "savemefvdata": true,
+    "saveaveragedata": true,
+    "campbelldiagram": true,
+    "hedstranddiagram": true,
+    "pvintegration": true,
+    "age": 35,
+    "sex": 1,
+    "ignoreic": [
+        [
+            "02-101_IC000W.txt",
+            [
+                2,
+                4,
+                6
+            ]
+        ],
+        [
+            "02-101_IC100W.txt",
+            [
+                1
+            ]
+        ],
+        [
+            "02-101_IC120W.txt",
+            [
+                2
+            ]
+        ],
+        [
+            "02-101_IC140W.txt",
+            [
+                3
+            ]
+        ],
+        [
+            "02-101_IC160W.txt",
+            [
+                2
+            ]
+        ],
+        [
+            "02-101_IC180W.txt",
+            [
+                2,
+                4,
+                6
+            ]
+        ],
+        [
+            "02-101_IC200W.txt",
+            [
+                2,
+                4,
+                6
+            ]
+        ],
+        [
+            "02-101_IC260W.txt",
+            [
+                2,
+                3,
+                4
+            ]
+        ],
+        [
+            "02-101_IC280W.txt",
+            [
+                10
+            ]
+        ]
+    ],
+    "ignorebreath": [
+        [
+            "02-101_B000W.txt",
+            [
+                1
+            ]
+        ],
+        [
+            "02-101_B020W.txt",
+            [
+                2
+            ]
+        ],
+        [
+            "02-101_B040W.txt",
+            [
+                3
+            ]
+        ],
+        [
+            "02-101_B060W.txt",
+            [
+                4
+            ]
+        ],
+        [
+            "02-101_B080W.txt",
+            [
+                5
+            ]
+        ],
+        [
+            "02-101_B100W.txt",
+            [
+                6
+            ]
+        ]
+    ]
 }
