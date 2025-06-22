@@ -31,11 +31,23 @@ def ignorebreaths(inputfile, foric, settings):
     
     else: return []
 
-def correcttrend(volume):
+def check_breath_separation(endinsp_pts, endexp_pts, volume, filename, settings):
+    if not len(endinsp_pts) == (len(endexp_pts) + 1):
+        plt.figure(figsize=(15,10), )
+        plt.title("Incorrect peak detection for " + filename)
+        plt.xlabel("Observations")
+        plt.ylabel("Volume (L)")
+        plt.plot(volume)
+        plt.plot(endexp_pts, volume[endexp_pts], 'x', markersize=10)
+        plt.plot(endinsp_pts, volume[endinsp_pts], 'x', markersize=10)
+        plt.savefig(pjoin(settings['inputfolder'], "output", "error.pdf"))
+        raise ValueError("Breaths not separated correctly, review error.pdf in output folder and check peak detection in settings")
+
+def correcttrend(volume, settings):
         """corrects volume trend"""
 
         vol = volume.squeeze()
-        peaks = signal.find_peaks((vol*-1), prominence=0.05, distance=0.25 * 1000)[0]
+        peaks = signal.find_peaks((vol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
         f = sp.interpolate.interp1d(peaks, vol[peaks], 'linear', fill_value="extrapolate")
         peaksresampled = f(np.linspace(0, vol.size-1, vol.size))
         corvol = volume - peaksresampled
@@ -50,8 +62,8 @@ def correcttrendic(volume, input_path, pdf, settings):
     """
     vol = volume.squeeze()
 
-    peaks = signal.find_peaks((vol), distance=500, prominence=0.25)[0]
-    valleys = signal.find_peaks((vol*-1), distance=500, prominence=0.25)[0]
+    peaks = signal.find_peaks((vol), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
+    valleys = signal.find_peaks((vol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
     peaks = peaks[:len(peaks)-1]
     ib = ignorebreaths(input_path, True, settings)
     if len(ib) > 0:
@@ -101,8 +113,9 @@ def get_ic(ic_path, pdf, settings):
     volume = breaths.iloc[:,settings['volumecol']].to_numpy()
     trendcorvol = correcttrendic(volume, ic_path, pdf, settings)
     corvol = trendcorvol
-    peaks = signal.find_peaks((corvol*-1), prominence=0.25, distance=50)[0]
-    ic = abs(corvol[peaks][-1])
+    peaks = signal.find_peaks((corvol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
+    # ic = abs(corvol[peaks][-1])
+    ic = abs(min(corvol))
     return ic
 
 def get_rest_ic(rest_ic_path, settings):
@@ -124,14 +137,15 @@ def average_breath(path, erv, pdf, settings):
     
     #correct volume
     volumeraw = volumeraw - volumeraw[0]
-    volume = correcttrend(volumeraw)
+    volume = correcttrend(volumeraw, settings)
 
     #find in and exp peaks
-    endinsp_pts, _ = signal.find_peaks(volume*-1, prominence=0.3)
-    endexp_pts, _ = signal.find_peaks(volume, prominence=0.3)
+    endinsp_pts, _ = signal.find_peaks(volume*-1, prominence=settings['peakprominence'], distance=settings['peakdistance'])
+    endexp_pts, _ = signal.find_peaks(volume, prominence=settings['peakprominence'], distance=settings['peakdistance'])
     
+    check_breath_separation(endinsp_pts, endexp_pts, volume, os.path.basename(path),settings)
 
-    fb = len(endinsp_pts)/(len(volume[endinsp_pts[0]:endinsp_pts[-1]])/1000)*60
+    fb = len(endinsp_pts)/(len(volume[endinsp_pts[0]:endinsp_pts[-1]])/settings['samplingfrequency'])*60
     ib = ignorebreaths(path, False, settings)
     
     if settings['saverawflowvolume']:
@@ -312,59 +326,55 @@ def workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, age, sex, ex_stage, pdf
     # print("WB plot saved")
     # insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
     
-    if frc >= erv:
-        insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
-    else:
+    # if frc >= erv:
+    #     insp_res, insp_elastic, exp_res, exp_elastic = wob.modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
+    if settings['poescol'] != "":
         insp_res, insp_elastic, exp_res, exp_elastic  = wob.hedstrand(avgexp_df, avginsp_df, point_a, point_b, ex_stage, pdf, settings)
-    if settings['savewobplots']:
-        pdf.savefig()
-        plt.close()
+        if settings['savewobplots']:
+            pdf.savefig()
+            plt.close()
 
-    insp_res_wob = insp_res * 0.09806 * fb
-    insp_elas_wob = insp_elastic * 0.09806 * fb
-    exp_res_wob = exp_res * 0.09806 * fb
-    exp_elas_wob = exp_elastic * 0.09806 * fb
+        insp_res_wob = insp_res * 0.09806 * fb
+        insp_elas_wob = insp_elastic * 0.09806 * fb
+        exp_res_wob = exp_res * 0.09806 * fb
+    else:
+        insp_res_wob = 0
+        insp_elas_wob = 0
+        exp_res_wob = 0
 
-    return insp_res_wob, insp_elas_wob, exp_res_wob, exp_elas_wob
+    return insp_res_wob, insp_elas_wob, exp_res_wob,
 
 def mechanics(avginsp_df, avgexp_df, ic, rest_ic, te, ti, vt, fb, ve, filename, ex_stage, pdf, settings):
     
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
-    # avg_expired_vecap = avgexp_df.copy()
 
     fvc = settings['fvc']
     frc = (fvc - rest_ic)[0]
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
-    # avginsp_df['volume'] = avginsp_df['volume'] + erv
-    # avgexp_df['volume'] = avgexp_df['volume'] + erv
-    # avgexp_df['volume'] = avgexp_df['volume'].values[::-1]
-    # avginsp_df['volume'] = avginsp_df['volume'].iloc[::-1]
-    # avgexp_df['volume'] = avgexp_df['volume'].iloc[::-1]
-
-    print("\t\t\t Determining presence of EFL and saving FV loop")
-    # efl, efl_percent = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, erv, filename, pdf, settings)
-    # vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     
-    print("\t\t\t Calculating work of breathing and saving the appropriate plot")
-    insp_res, insp_elastic, exp_res, exp_elastic = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
+    print("\t\t\t Calculating work of breathing and saving the plot")
+    insp_res, insp_elastic, exp_res = workofbreathing(avginsp_df, avgexp_df, frc, erv, fb, settings['age'], settings['sex'], ex_stage, pdf, settings)
     
-    mechanics = {'Fb': [round(fb, 2)],
+    # to add columns to the 'exerciseData' output here
+    mechanics = {'Stage': ex_stage,
+                 'Fb': [round(fb, 2)],
                  'VT': [vt.round(2)],
                  'VE': [ve.round(2)],
                  'IC': [ic.round(2)],
                  'ERV': [erv.round(2)],
                  'IRV': [irv.round(2)],
+                 'VT/IC':[(vt/ic).round(2)],
+                 'VT/FVC':[(vt/fvc).round(2)],
+                 'Ti':[ti.round(2)],
+                 'Te':[te.round(2)],
+                 'Ti/Ttot':[(ti/(ti+te)).round(2)],
                  'IR_wob': [insp_res],
                  'IE_wob': [insp_elastic],
-                 'ER_wob': [exp_res],
-                 'EE_wob': [exp_elastic]}
-                #  'VEcap': [vecap],
-                #  'VEcap(%)': [(ve / vecap)],
-                #  'EFL': [efl],
-                #  'EFL%': [efl_percent]}
+                 'ER_wob': [exp_res]}
+
 
     df = pd.DataFrame(mechanics)
     
@@ -400,7 +410,7 @@ def analyse(settings):
         file_name = breaths_dir[f]
         if file_name.endswith(".txt"):
             print("\t Loading " + file_name)
-            ex_stage = file_name.strip('.txt')[-3:] 
+            ex_stage = file_name.strip('.txt')[-4:] 
             input_path = pjoin(inputfolder, "breaths", file_name)
         ic_file = ic_dir[f]
         if ic_file.endswith(".txt"):
@@ -416,7 +426,7 @@ def analyse(settings):
             print("\t\t Calculating breathing mechanics")
             df = mechanics(avginsp_df, avgexp_df, ic, rest_ic, te, ti, vt, fb, ve, file_name, ex_stage, pdf, settings)
         if settings['saveaveragedata']:
-            averagefv = pd.concat([avg_expired, avg_inspired])
+            averagefv = pd.concat([avgexp_df, avginsp_df])
             averagefv.to_excel(pjoin(settings['inputfolder'], "output", "data", file_name + "AverageFVloop.xlsx"), index=False)
             outputdata = pd.concat([outputdata, df])
     

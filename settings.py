@@ -2,24 +2,27 @@ import gnar
 import os
 
 settings = {
-    "inputfolder": r'/Users/jackdunsford/Desktop/02-119',
+    "inputfolder": r'/Users/jackdunsford/Desktop/NITRATE 101',
     
-    "timecol":0,
+    "timecol":0, 
     "flowcol":17,
-    "volumecol":18,
-    "poescol":13,   
-    "pgascol":14,
+    "volumecol":21,
+    "poescol":9, #if no catheter data put "" instead of the column number  
+    "pgascol":10,
     #enter the name of the file and the breath number you wish to exclude from the IC volume drift correction
     "ignoreic": [
-        # ["01-101_V3_IC160.txt", [7,9,10,11]]
+        
     ],
     #enter the name of the file and the breath number you wish to exclude from volume drift correction and averaging
     "ignorebreath":[
-        ["01-101_V3_B080.txt", [2,3,4,5]],
-        ["01-101_V3_B140.txt", [1,7,8]],
-        ["01-101_V3_B100.txt", [4,5,6]],
-        ["01-101_V3_B120.txt", [1,2,7,8,10]]
+        ["NITRATE101V1_B090.txt", [2,3]]
     ],
+
+    "samplingfrequency": 2000,
+    "peakdistance": 1000, #minimum distance between peaks, should be ~500ms, i.e. take into account sampling freqency 
+    "peakprominence": 0.11,
+    "workrateincrement": 20,
+
     "saveiccorrection": True, #saves a plot with the ic trend correction to check for incorrect EELV detection
     "saverawflowvolume": True, #saves a plot of the raw flow and volume traces
     "saveflowvolumeloops": True, #saves a plot with the FV loop and MEFV for each stage
@@ -29,9 +32,9 @@ settings = {
     "savemefvdata": True, #saves an excel with fvc, fev1, pef, slope ratio, and data for the MEFV curve
     "saveaveragedata": True, #saves an excel with the data of the average flow volume loop for each stage
     
-    "age": 34,
+    "age": 79,
     "sex": 1,
-    "fvc": 5.68
+    "fvc": 3.92
 }
 
 if __name__ == '__main__':
