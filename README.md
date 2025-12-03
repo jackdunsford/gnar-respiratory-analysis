@@ -26,7 +26,7 @@ The **spirometry.py** file is a module integrated into the gnar.py code but can 
 
 Duplicate and rename the settings.json file for each exercise test you want to analyze, paste the path to the input folder.
 
-Paste the path to the duplicated settings.json file into main.py, then run main.py to execute the gnar.py scitpt.
+Paste the path to the duplicated settings.json file into main.py, then run main.py to execute the gnar.py script.
 
 ## Input
 The program takes time series data of time, flow, and volume collected using data acquisition software (code is designed to work seamlessly with LabChart exported .txt files). Export data into the folders specified below with two .txt files for each stage (one in "breaths" and one in "ic") and as many FVC manoevers as collected.
