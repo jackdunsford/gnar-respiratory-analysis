@@ -153,9 +153,8 @@ def dh_campbell(avgexp_df, avginsp_df, frc_y, ex_stage, pdf, settings):
     plt.xlabel("Esophageal Pressure (cmH2O)")
     plt.plot(avgexp_df['poes'], avgexp_df['volume'], color='r')
     plt.plot(avginsp_df['poes'], avginsp_df['volume'], color='b')
-    # print(x_eelv, y_eelv)
-    
     plt.plot(cl_x,cl_y, color='k')
+    # plt.show()
 
     #Find and plot the chest wall compliance line
     ccw_y_line = np.linspace(frc_y, avginsp_df['volume'].max(), 100)
@@ -169,6 +168,9 @@ def dh_campbell(avgexp_df, avginsp_df, frc_y, ex_stage, pdf, settings):
     #Find intersections between Ccw and exp curve
     exp_curve = np.array(list(zip(avgexp_df['poes'], avgexp_df['volume'])))
     intersection = find_intersection((frc_x, frc_y), (x_ccw_eilv, y_eilv), exp_curve)
+
+    # if intersection.geom_type == 'Point':
+
 
     if not intersection.is_empty:
         intersecthigh = (intersection.geoms[0].x, intersection.geoms[0].y)
@@ -212,9 +214,10 @@ def dh_campbell(avgexp_df, avginsp_df, frc_y, ex_stage, pdf, settings):
     # points = np.array([[x_eelv, y_eelv], [x_para_ccw_eilv, y_eilv], [x_ccw_eilv, y_eilv], [intersectlow[0], intersectlow[1]]])
     x, y = points[:, 0], points[:, 1]
     peepi_area = 0.5 * abs(np.dot(x[:-1], y[1:]) - np.dot(x[1:], y[:-1]))
+    
     plt.fill(points[:, 0], points[:, 1], 'yellow', alpha=0.5)
     
-
+    insp_elastic_area = insp_elastic_area - peepi_area
 
     
     insp_res_area = polypaths_area(insp_res_curve)
@@ -321,6 +324,7 @@ def pvintegration(avgexp_df, avginsp_df, ex_stage):
     exp_x_line = np.linspace(x_eelv, x_eilv, len(exp_x_curve))
     exp_res_curve = plt.fill_betweenx(exp_y_curve, exp_x_curve, exp_x_line,color='blue',alpha=0.6, edgecolor='none')
     exp_curve_area = 0
+
     for path in exp_res_curve.get_paths():
         vertices = path.vertices
         exp_curve_area += 0.5 * np.abs(np.dot(vertices[:, 0], np.roll(vertices[:, 1], 1)) -
@@ -331,47 +335,69 @@ def pvintegration(avgexp_df, avginsp_df, ex_stage):
 def work_of_breathing(avgexp_df, avginsp_df, erv, frc, fb, ex_stage, pdf, settings):
     output = pd.DataFrame()
     figs = []
-    if settings['campbelldiagram']:
-        if erv > frc:
-            insp_res_area, insp_elastic_area, peepi_area, exp_res_area, campbell_fig = dh_campbell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
-            exp_elastic_area = 0
-        else:
-            insp_res_area, insp_elastic_area, exp_res_area, exp_elastic_area, campbell_fig = modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
-            peepi_area = 0
-        campbell_data = {
-            'cb_IR': [round(insp_res_area* 0.09806, 3)],
-            'cb_IE': [round(insp_elastic_area* 0.09806, 3)],
-            'cb_ER': [round(exp_res_area* 0.09806, 3)],
-            'cb_EE': [round(exp_elastic_area* 0.09806, 3)],
-            'cb_PEEP': [round(peepi_area* 0.09806, 3)]
+    if settings['poescol'] != 0:
+        if settings['campbelldiagram'] == "True":
+            if erv > frc:
+                insp_res_area, insp_elastic_area, peepi_area, exp_res_area, campbell_fig = dh_campbell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
+                exp_elastic_area = 0
+            else:
+                insp_res_area, insp_elastic_area, exp_res_area, exp_elastic_area, campbell_fig = modified_cambell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
+                peepi_area = 0
+            campbell_data = {
+                'cb_IR': [round(insp_res_area* 0.09806 * fb, 3)],
+                'cb_IE': [round(insp_elastic_area* 0.09806 * fb, 3)],
+                'cb_ER': [round(exp_res_area* 0.09806 * fb, 3)],
+                'cb_EE': [round(exp_elastic_area* 0.09806 * fb, 3)],
+                'cb_PEEP': [round(peepi_area* 0.09806 * fb, 3)]
+                }
+            if output.empty:
+                output = pd.DataFrame(campbell_data)
+            else:
+                output = pd.concat([output, pd.DataFrame(campbell_data)], axis=1)
+            figs.append(campbell_fig)
+
+        if settings['hedstranddiagram'] == "True":
+            insp_curve_area, insp_elastic, exp_curve_area, hedstrand_fig = hedstrand(avgexp_df, avginsp_df, frc, ex_stage, settings)
+            hedstrand_data = {
+                'h_IR': [round(insp_curve_area* 0.09806 * fb, 3)],
+                'h_IE': [round(insp_elastic* 0.09806 * fb, 3)],
+                'h_ER': [round(exp_curve_area* 0.09806 * fb, 3)]
             }
-        if output.empty:
-            output = pd.DataFrame(campbell_data)
-        else:
-            output = pd.concat([output, pd.DataFrame(campbell_data)], axis=1)
-        figs.append(campbell_fig)
-    if settings['hedstranddiagram']:
-        insp_curve_area, insp_elastic, exp_curve_area, hedstrand_fig = hedstrand(avgexp_df, avginsp_df, frc, ex_stage, settings)
+            if output.empty:
+                output = pd.DataFrame(hedstrand_data)
+            else:
+                output = pd.concat([output, pd.DataFrame(hedstrand_data)], axis=1)
+            figs.append(hedstrand_fig)
+        if settings['pvintegration'] == "True":
+            insp_wob, exp_wob, pv_fig = pvintegration(avgexp_df, avginsp_df, ex_stage)
+            pv_data = {
+                'pv_insp': [round(insp_wob* 0.09806 * fb, 3)],
+                'pv_exp': [round(exp_wob* 0.09806 * fb, 3)]
+            }
+            if output.empty:
+                output = pd.DataFrame(pv_data)
+            else:
+                output = pd.concat([output, pd.DataFrame(pv_data)], axis=1)
+            figs.append(pv_fig)
+    else:
+        campbell_data = {
+                'cb_IR': [0],
+                'cb_IE': [0],
+                'cb_ER': [0],
+                'cb_EE': [0],
+                'cb_PEEP': [0]
+                }
         hedstrand_data = {
-            'h_IR': [round(insp_curve_area* 0.09806, 3)],
-            'h_IE': [round(insp_elastic* 0.09806, 3)],
-            'h_ER': [round(exp_curve_area* 0.09806, 3)]
-        }
-        if output.empty:
-            output = pd.DataFrame(hedstrand_data)
-        else:
-            output = pd.concat([output, pd.DataFrame(hedstrand_data)], axis=1)
-        figs.append(hedstrand_fig)
-    if settings['pvintegration']:
-        insp_wob, exp_wob, pv_fig = pvintegration(avgexp_df, avginsp_df, ex_stage)
+                'h_IR': [0],
+                'h_IE': [0],
+                'h_ER': [0]
+            }
         pv_data = {
-            'pv_insp': [round(insp_wob* 0.09806, 3)],
-            'pv_exp': [round(exp_wob* 0.09806, 3)]
-        }
-        if output.empty:
-            output = pd.DataFrame(pv_data)
-        else:
-            output = pd.concat([output, pd.DataFrame(pv_data)], axis=1)
-        figs.append(pv_fig)
+                'pv_insp': [0],
+                'pv_exp': [0]
+            }
+        output = pd.concat([output, pd.DataFrame(campbell_data)], axis=1)    
+        output = pd.concat([output, pd.DataFrame(hedstrand_data)], axis=1)
+        output = pd.concat([output, pd.DataFrame(pv_data)], axis=1)
     return output, figs
     

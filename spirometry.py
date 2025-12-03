@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 def get_fvc(mefv):
     vital_capacity = mefv['volume'].iloc[-1]
@@ -11,7 +12,7 @@ def get_peak_flow(mefv):
     return peak_flow
 
 def get_fev1(mefv):
-    mefv['time'] = (0.01 / mefv['flow']).cumsum().round(2)
+    mefv['time'] = (0.02 / mefv['flow']).cumsum().round(2)
     mefv['time'] = mefv['time'].values[::-1]
     fev1 = mefv.loc[mefv['time'] <= 1.00, 'volume'].iloc[0]
     
@@ -38,7 +39,8 @@ def get_slope_ratio(mefv):
 
 def save_spirometry(mefv, path, settings): 
     fvc=get_fvc(mefv)
-    fev1=get_fev1(mefv)
+    # fev1=get_fev1(mefv)
+    fev1 = 0
     peak_flow=get_peak_flow(mefv)
     slope_ratio=get_slope_ratio(mefv)
     mefv2 = mefv[['time', 'volume', 'flow']]
@@ -49,7 +51,24 @@ def save_spirometry(mefv, path, settings):
         df.to_excel(writer, sheet_name='Data', index=False)
         mefv2.to_excel(writer, sheet_name='MEFV', index=False)
 
-def individual_fvc(input_path:str, settings):
+def get_max_fvc(fvc_folder, settings):
+    dl = os.listdir(fvc_folder)
+    fvc = 0
+    for f in dl:
+        if f.endswith(".txt"):
+            path_in = os.path.join(fvc_folder,f)
+            data = pd.read_csv(path_in,
+                            delimiter='\t')
+            data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
+            data.columns = ['flow', 'volume']
+            data['time'] = np.arange(len(data['flow'])) / 2000
+            data['volume'] = (data['volume'] - data['volume'][0]).round(2)
+            data = data[data['volume'] >= 0]
+            if data['volume'].iloc[-1] > fvc:
+                fvc = data['volume'].iloc[-1]
+    return fvc
+
+def individual_fvc(input_path:str, fvc, settings):
     """
     fed each file from the mefv_curve function and creates a data frame of
     that MEFV curve
@@ -59,6 +78,7 @@ def individual_fvc(input_path:str, settings):
                             delimiter='\t')
     data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
     data.columns = ['flow', 'volume']
+    data['time'] = np.arange(len(data['flow'])) / settings['samplingfrequency']
     # volume= data[settings['volumecol']].to_numpy()
     # # poes = breaths['poes'].to_numpy()
     # flow = data[settings['flowcol']].to_numpy()
@@ -67,6 +87,9 @@ def individual_fvc(input_path:str, settings):
     data['volume'] = (data['volume'] - data['volume'][0]).round(2)
     data = data[data['volume'] >= 0]
     individual_mefv = data.groupby('volume').mean().reset_index()
+    diff = fvc - individual_mefv['volume'].iloc[-1]
+    
+    individual_mefv['volume'] = (individual_mefv['volume'] + diff).round(2)
     # individual_mefv = df.drop(['time'], axis=1).reset_index()
     individual_mefv.volume = individual_mefv.volume.values[::-1]
     individual_mefv = individual_mefv.reset_index()
@@ -81,10 +104,11 @@ def mefv_curve(path, settings):
     master_df = pd.DataFrame()
     dl = os.listdir(path)
     fig, ax = plt.subplots()
+    fvc = get_max_fvc(path, settings)
     for f in dl:
         if f.endswith(".txt"):
             path_in = os.path.join(path,f)
-            df = individual_fvc(path_in, settings)
+            df = individual_fvc(path_in, fvc, settings)
             ax.plot(df.volume, df.flow, alpha=0.2, color = "gray")
             master_df = pd.concat([master_df, df])
     

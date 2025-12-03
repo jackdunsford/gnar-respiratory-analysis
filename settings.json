@@ -1,24 +1,22 @@
 {
-    "inputfolder":"/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/GNAR/sample_data/02-101",
-    "flowcol":17,
-    "volumecol":18,
-    "poescol":13, 
-    "pgascol":14,
+    "inputfolder":"/path/to/input/folder",
+    "flowcol":20,
+    "volumecol":19,
+    "poescol":8, 
+    "pgascol":9,
     "ignoreic":[
-        ["02-101_IC160W.txt", [2]]
-        ],
+        ["PCD18V1_IC040.txt", [5]],
+        ["PCD18V1_IC100.txt", [6,7,11,12]]
+    ],
     "ignorebreath":[
-        ["02-101_B020W.txt", [1,2,6,7,8]],
-        ["02-101_B040W.txt", [4,6,7]],
-        ["02-101_B060W.txt", [5,6,7]],
-        ["02-101_B120W.txt", [5,7,8]],
-        ["02-101_B140W.txt", [6,7,8,9,10,11,12]],
-        ["02-101_B160W.txt", [2,3]],
-        ["02-101_B200W.txt", [4,10,11]]
-        ],
+        ["PCD20V1_B000.txt", [2,3,5]],
+        ["PCD20V1_B040.txt", [1,2,3]],
+        ["PCD20V1_B100.txt", [3]],
+        ["PCD20V1_B200.txt", [13,14,15,16]]
+    ],
 
-    "samplingfrequency": 1000,
-    "peakdistance": 250, 
+    "samplingfrequency": 2000,
+    "peakdistance": 500,
     "peakprominence": 0.1,
     "workrateincrement": 20,
     "saveiccorrection": "True", 
@@ -33,6 +31,7 @@
     "hedstranddiagram":"True", 
     "pvintegration":"True", 
 
-    "age":35,
+    "id": "20",
+    "age":46,
     "sex":1    
 }

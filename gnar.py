@@ -26,7 +26,29 @@ def check_breath_separation(endinsp_pts, endexp_pts, volume, filename, settings)
         plt.plot(endinsp_pts, volume[endinsp_pts], 'x', markersize=10)
         plt.savefig(pjoin(settings['inputfolder'], "output", "error.pdf"))
         raise ValueError("Breaths not separated correctly, review error.pdf in output folder and check peak detection in settings")
+ 
+def check_fvc_folder(settings):
+    input_dir = settings['inputfolder']
+    fvc_folder = os.path.join(input_dir, 'fvc')
+    if os.path.isdir(fvc_folder):
+        files = [
+            f for f in os.listdir(fvc_folder)
+            if os.path.isfile(os.path.join(fvc_folder, f)) and f != ".DS_Store"
+            ]
+        if len(files) > 0:
+            return True
+        else:
+            if settings['fvc'] == 0:
+                raise Exception("Need FVC files in FVC folder, or FVC entered manually in settings")
+            else:
+                return False    
+    else:
+        if settings['fvc'] == 0:
+            raise Exception("Need FVC files in FVC folder, or FVC entered manually in settings")
+        else:
+            return False 
 
+    
 def add_dataframe_to_pdf(pdf, dataframe, title):
     fig, ax = plt.subplots(figsize=(10, 6))  # Set figure size
     ax.axis("tight")
@@ -79,13 +101,13 @@ def ignorebreaths(inputfile, foric, settings):
 
 def trim(flow, volume, poes, pgas):
     if flow[0] >= 0:
-        # startix = np.argmax(flow<0) + 250
-        startix = np.argwhere(flow <0)[0]-50
+        startix = np.argmax(flow<0) + 100
+        # startix = np.argwhere(flow <0)[0]-50
     else: startix = 0
     # posflow = np.argwhere(flow<=0)
     if flow[-1] <= 0:
         # endix = posflow[:,0][len(posflow[:,0])-1]-50
-        endix = np.argwhere(flow>0)[-1]+50
+        endix = int(np.argwhere(flow>0)[-1] - 50)
     else:endix=len(flow)
     return flow[startix:endix],volume[startix:endix],poes[startix:endix], pgas[startix:endix]
 
@@ -157,6 +179,30 @@ def correcttrendic(volume, input_path, pdf, settings):
     
     return corvol
 
+def correcttrendic_r(volume, input_path, settings):
+    """
+    FOR RESTING ICs ONLY
+    corrects drift and trend for the IC breaths, does not include final expiration
+    before the IC to account for participant changes in breathing 
+    """
+    vol = volume.squeeze()
+
+    peaks = signal.find_peaks((vol), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
+    valleys = signal.find_peaks((vol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
+    peaks = peaks[:len(peaks)-1]
+    ib = ignorebreaths(input_path, True, settings)
+    if len(ib) > 0:
+        peaks = np.delete(peaks, ib)
+
+    z = np.polyfit(peaks, vol[peaks], 1)
+    p = np.poly1d(z)
+
+    peaksresampled = p(np.linspace(0, vol.size-1, vol.size))
+    corvol = volume - peaksresampled
+    
+    return corvol
+
+
 def get_ic(ic_path, pdf, settings):
 
     breaths = pd.read_csv(ic_path, delimiter='\t')
@@ -167,13 +213,16 @@ def get_ic(ic_path, pdf, settings):
     ic = abs(corvol[peaks][-1])
     return ic
 
-def get_rest_ic(rest_ic_path, settings):
-    rest_ic = []
-    for file in sorted(os.listdir(rest_ic_path)):
-        if file.endswith(".txt"):
-            path_in = os.path.join(rest_ic_path, file)
-            rest_ic.append(get_ic(path_in, False, settings))
-    return pd.DataFrame(rest_ic).mean()
+def get_ic_r(ic_path, settings):
+
+    breaths = pd.read_csv(ic_path, delimiter='\t')
+    volume = breaths.iloc[:,settings['volumecol']].to_numpy()
+    trendcorvol = correcttrendic_r(volume, ic_path, settings)
+    corvol = trendcorvol
+    peaks = signal.find_peaks((corvol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
+    ic = abs(corvol[peaks][-1])
+    return ic
+
 
 def pressure_swings(pressure, endinsp_pts, ib):
     poes_swings = []
@@ -204,35 +253,38 @@ def average_breath(path, erv, pdf, settings):
         pgas = df.iloc[:, settings['pgascol']].to_numpy()
     else: pgas = np.zeros(len(volumeraw))
     pdi = pgas - poes
-    
-    #trims breaths to start on inspiration and end on expiration
-    try:
-        flow, volumeraw, poes, pgas = trim(flow, volumeraw, poes, pgas)
-    except:
-        print('i')
-        if settings['saverawflowvolume']:
-            fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(15, 10), constrained_layout=True)
-            fig.suptitle("Input flow and volume for " + os.path.basename(path), fontsize=15)
-            ax[0].plot(flow)
-            ax[0].set_title("Raw Flow")
-            ax[0].set_ylabel("Flow (L/s)")
-            ax[1].plot(poes)
-            ax[1].set_title("Oesophageal Pressure")
-            ax[1].set_ylabel("Peso (cmH2O)")
-            ax[2].plot(volumeraw)
-            ax[2].set_title("Volume (Uncorrected)")
-            ax[2].set_ylabel("Volume(L)")
-            ax[3].plot(volume)
-            ax[3].set_title("Volume (Corrected)")
-            ax[3].set_ylabel("Volume (L)")
-            ax[3].set_xlabel("Time (ms)")
-            pdf.savefig()
-            plt.close()
-    
-    #correct volume
+
+        #correct volume
     volumeraw = volumeraw - volumeraw[0]
+
+    #trims breaths to start on inspiration and end on expiration
+    # try:
+    flow, volumeraw, poes, pgas = trim(flow, volumeraw, poes, pgas)
+    # except:
+    #     print('i')
+    #     volume = correcttrend(volumeraw, settings)
+    #     if settings['saverawflowvolume']:
+    #         fig, ax = plt.subplots(nrows=4, ncols=1, figsize=(15, 10), constrained_layout=True)
+    #         fig.suptitle("Input flow and volume for " + os.path.basename(path), fontsize=15)
+    #         ax[0].plot(flow)
+    #         ax[0].set_title("Raw Flow")
+    #         ax[0].set_ylabel("Flow (L/s)")
+    #         ax[1].plot(poes)
+    #         ax[1].set_title("Oesophageal Pressure")
+    #         ax[1].set_ylabel("Peso (cmH2O)")
+    #         ax[2].plot(volumeraw)
+    #         ax[2].set_title("Volume (Uncorrected)")
+    #         ax[2].set_ylabel("Volume(L)")
+    #         ax[3].plot(volume)
+    #         ax[3].set_title("Volume (Corrected)")
+    #         ax[3].set_ylabel("Volume (L)")
+    #         ax[3].set_xlabel("Time (ms)")
+    #         pdf.savefig()
+    #         plt.close()
+    
+
     volume = correcttrend(volumeraw, settings)
-    volume, 
+
     #find in and exp peaks
     endinsp_pts, _ = signal.find_peaks(volume*-1, prominence=settings['peakprominence'], distance=settings['peakdistance'])
     endexp_pts, _ = signal.find_peaks(volume, prominence=settings['peakprominence'], distance=settings['peakdistance'])
@@ -240,7 +292,11 @@ def average_breath(path, erv, pdf, settings):
     #check that correct peaks and troughs are being selected, should be one more trough than peak
     check_breath_separation(endinsp_pts, endexp_pts, volume, os.path.basename(path),settings)
 
-    fb = len(endinsp_pts)/(len(volume[endinsp_pts[0]:endinsp_pts[-1]])/settings['samplingfrequency'])*60
+    gaps = [(endinsp_pts[i] - endinsp_pts[i-1] - 1)/2000 for i in range(1, len(endinsp_pts))]
+
+    fb = 1/(sum(gaps) / len(gaps))*60
+
+    # fb = len(endinsp_pts)/(len(volume[endinsp_pts[0]:endinsp_pts[-1]])/settings['samplingfrequency'])*60
     ib = ignorebreaths(path, False, settings)
     
     if settings['saverawflowvolume']:
@@ -249,6 +305,7 @@ def average_breath(path, erv, pdf, settings):
       ax[0].plot(flow)
       ax[0].set_title("Raw Flow")
       ax[0].set_ylabel("Flow (L/s)")
+      ax[0].axhline(0, alpha=0.2)
       ax[1].plot(poes)
       ax[1].set_title("Oesophageal Pressure")
       ax[1].set_ylabel("Peso (cmH2O)")
@@ -388,35 +445,45 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, filename, settings):
     # if settings['saveflowvolumeloops']:
 
     efl_fig = plt.figure(figsize=(10,10))
-    plt.plot(mefv['volume'], mefv['flow'])
-    plt.plot(avg_expired['volume'], avg_expired['flow'])
-    plt.plot(avg_inspired['volume'], avg_inspired['flow'])
-    _,xmax = plt.xlim()
-    plt.axhline(y=0, xmin=0, xmax=xmax , color="gray")
-    plt.xlabel("Volume (L)")
-    plt.ylabel("Flow (L/s)")
-    plt.title("MEFV and flow volume loops for " + os.path.basename(filename), fontsize=15)
-    
+    if isinstance(mefv, pd.DataFrame):
+        plt.plot(mefv['volume'], mefv['flow'])
+        plt.plot(avg_expired['volume'], avg_expired['flow'])
+        plt.plot(avg_inspired['volume'], avg_inspired['flow'])
+        _,xmax = plt.xlim()
+        plt.axhline(y=0, xmin=0, xmax=xmax , color="gray")
+        plt.xlabel("Volume (L)")
+        plt.ylabel("Flow (L/s)")
+        plt.title("MEFV and flow volume loops for " + os.path.basename(filename), fontsize=15)
+
+        for i in range(len(avg_expired)):
+            tvol = avg_expired.volume.iloc[i].round(2)
+            tflow = avg_expired['flow'].iloc[i]
+            if tvol in mefv.volume.values:
+                mefv_flow = mefv[mefv['volume']==tvol].round(2)['flow'].values[0]
+                if tflow > mefv_flow: count+=1
+        
+        efl_percent = ((count/len(avg_expired.flow))*100)
+            
+        if count >= 5: 
+            efl = 1
+        else: 
+            efl = 0
+    else:
+        plt.plot(avg_expired['volume'], avg_expired['flow'])
+        plt.plot(avg_inspired['volume'], avg_inspired['flow'])
+        _,xmax = plt.xlim()
+        plt.axhline(y=0, xmin=0, xmax=xmax , color="gray")
+        plt.xlabel("Volume (L)")
+        plt.ylabel("Flow (L/s)")
+        plt.title("Flow volume loops for " + os.path.basename(filename), fontsize=15)
+        efl = 0
+        efl_percent = 0
         # pdf.savefig()
         # plt.close()
 
     if settings['saveaveragedata']:
         averagefv = pd.concat([avg_expired, avg_inspired])
         averagefv.to_excel(pjoin(settings['inputfolder'], "output", "data", "AverageFVloop.xlsx"), index=False)
-
-    for i in range(len(avg_expired)):
-        tvol = avg_expired.volume.iloc[i].round(2)
-        tflow = avg_expired['flow'].iloc[i]
-        if tvol in mefv.volume.values:
-            mefv_flow = mefv[mefv['volume']==tvol].round(2)['flow'].values[0]
-            if tflow > mefv_flow: count+=1
-    
-    efl_percent = ((count/len(avg_expired.flow))*100)
-         
-    if count >= 5: 
-        efl = 1
-    else: 
-        efl = 0
 
     return efl, efl_percent, efl_fig
 
@@ -453,14 +520,18 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ic, mefv, te, ti, vt, fb, ve, f
     avg_expired_efl = avgexp_df.copy()
     avg_inspired_efl = avginsp_df.copy()
 
-    fvc = spirometry.get_fvc(mefv).round(2)
+    if isinstance(mefv, pd.DataFrame):
+        fvc = spirometry.get_fvc(mefv).round(2)
+    else: fvc = settings['fvc']
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
     print("\t\t\t Determining presence of EFL and saving FV loop")
     efl, efl_percent, efl_fig = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, filename, settings)
-    vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
-    
+    if isinstance(mefv, pd.DataFrame):
+        vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
+    else:
+        vecap = 0.0
 
     # if settings['poescol'] != 0:
     #     print("\t\t\t Calculating work of breathing and saving the Hedstrand plot")
@@ -471,24 +542,36 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ic, mefv, te, ti, vt, fb, ve, f
     #     total_wob = insp_res + insp_elastic + exp_res
     # else: insp_res, insp_elastic, exp_res, total_wob = 0,0,0,0
 
-    mechanics = {'Workrate': [ex_stage],
-                 'FVC': [fvc.round(3)],
+    if vecap == 0: vecap_percent = 0
+    else: vecap_percent = ((ve / vecap)*100).round(3)
+
+    mechanics = {'ID':settings['id'],
+                 'Sex':settings['sex'],
+                 'Age':settings['age'],
+                 'FVC': [fvc],
+                 'Workrate': [ex_stage],
                  'Fb': [round(fb, 3)],
                  'VT': [vt.round(3)],
                  'VE': [ve.round(3)],
                  'IC': [ic.round(3)],
                  'ERV': [erv.round(3)],
                  'IRV': [irv.round(3)],
+                 'VT/IC':[(vt/ic).round(2)],
+                 'VT/FVC':[(vt/fvc).round(2)],
+                 'Ti':[ti.round(2)],
+                 'Te':[te.round(2)],
+                 'Ti/Ttot':[(ti/(ti+te)).round(2)],
                  'poes_swing': [round(avg_swings[0], 3)],
                  'pdi_swing': [round(avg_swings[1],3)],
-                 'VEcap': [vecap.round(3)],
-                 'VEcap(%)': [((ve / vecap)*100).round(3)],
+                 'VEcap': [round(vecap, 3)],
+                 'VEcap(%)': [vecap_percent],
                  'EFL': [efl],
                  'EFL%': [efl_percent]}
 
     df = pd.DataFrame(mechanics)
     
     wob_output, wob_figs = wob.work_of_breathing(avgexp_df, avginsp_df, erv, frc, fb, ex_stage, pdf, settings)
+
     df = pd.concat([df, wob_output], axis=1)
 
     if len(wob_figs) >= 2:
@@ -535,19 +618,7 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ic, mefv, te, ti, vt, fb, ve, f
             axs[spots[fig]].set_ylabel(wob_figs[fig].axes[0].get_ylabel())
             axs[spots[fig]].set_xlabel(wob_figs[fig].axes[0].get_xlabel())
 
-    #add df to the ax3
-    # axs["E"].axis("off")
-    # table = axs["E"].table(
-    #     cellText=df.values,
-    #     colLabels=df.columns,
-    #     loc="center",
-    #     cellLoc="center",
-    #     edges='open'
-    # )
-    # table.auto_set_font_size(False)
-    # table.set_fontsize(9)
-    # table.auto_set_column_width(col=list(range(len(df.columns))))
-    
+
     #save three panel figure to a pdf
     pdf.savefig(combined_fig)
     plt.close()
@@ -558,6 +629,16 @@ def listdir_nohidden(path):
     for f in filenames:
         if not f.startswith('.'):
             yield f
+
+def get_rest_ic(rest_ic_dir, inputfolder, settings):
+    rest_ic_lis = []
+    for f in range(len(rest_ic_dir)):
+        if rest_ic_dir[f].endswith(".txt"):
+            ic_input = pjoin(inputfolder, "rest ic",rest_ic_dir[f])
+            temp_ic = get_ic_r(ic_input, settings)
+            rest_ic_lis.append(temp_ic)
+
+    return pd.Series(rest_ic_lis).mean()
 
 
 def analyse(settings):
@@ -571,12 +652,19 @@ def analyse(settings):
     outputfolder = pjoin(inputfolder, "output")
     breaths_dir = sorted(listdir_nohidden(pjoin(inputfolder, "breaths")))
     ic_dir = sorted(listdir_nohidden(pjoin(inputfolder, "ic")))
-
+    ic_rest_dir = sorted(listdir_nohidden(pjoin(inputfolder, "rest ic")))
     increment = settings['workrateincrement']
     stage_count = 0
-    print("\t Calculating MEFV")
-    mefv = spirometry.mefv_curve(fvcfolder, settings)
-    fvc = spirometry.get_fvc(mefv).round(2)
+    
+    if check_fvc_folder(settings):
+        print("\t Calculating MEFV")
+        mefv = spirometry.mefv_curve(fvcfolder, settings)
+        fvc = spirometry.get_fvc(mefv).round(2)
+        fvc_type = "mefv"
+    else:
+        fvc = settings['fvc']
+        mefv = 0
+        
 
     outputdata = pd.DataFrame()
     for f in range(len(breaths_dir)):
@@ -594,7 +682,8 @@ def analyse(settings):
             print("\t\t Calculating IC")
             ic = get_ic(ic_input, pdf, settings).round(2)
             if stage_count == 0:
-                frc = fvc - ic
+                rest_ic = get_rest_ic(ic_rest_dir, inputfolder, settings)
+                frc = fvc - rest_ic
             erv = fvc - ic
             print("\t\t Calculating average breath") 
             avgexp_df, avginsp_df, avg_swings, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)
