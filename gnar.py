@@ -292,7 +292,7 @@ def average_breath(path, erv, pdf, settings):
     #check that correct peaks and troughs are being selected, should be one more trough than peak
     check_breath_separation(endinsp_pts, endexp_pts, volume, os.path.basename(path),settings)
 
-    gaps = [(endinsp_pts[i] - endinsp_pts[i-1] - 1)/2000 for i in range(1, len(endinsp_pts))]
+    gaps = [(endinsp_pts[i] - endinsp_pts[i-1] - 1)/settings['samplingfrequency'] for i in range(1, len(endinsp_pts))]
 
     fb = 1/(sum(gaps) / len(gaps))*60
 
@@ -652,7 +652,8 @@ def analyse(settings):
     outputfolder = pjoin(inputfolder, "output")
     breaths_dir = sorted(listdir_nohidden(pjoin(inputfolder, "breaths")))
     ic_dir = sorted(listdir_nohidden(pjoin(inputfolder, "ic")))
-    ic_rest_dir = sorted(listdir_nohidden(pjoin(inputfolder, "rest ic")))
+    if os.path.isdir(os.path.join(inputfolder, "rest ic")):
+        ic_rest_dir = sorted(listdir_nohidden(pjoin(inputfolder, "rest ic")))
     increment = settings['workrateincrement']
     stage_count = 0
     
@@ -682,8 +683,10 @@ def analyse(settings):
             print("\t\t Calculating IC")
             ic = get_ic(ic_input, pdf, settings).round(2)
             if stage_count == 0:
-                rest_ic = get_rest_ic(ic_rest_dir, inputfolder, settings)
-                frc = fvc - rest_ic
+                if os.path.isdir(os.path.join(inputfolder, "rest ic")):
+                    rest_ic = get_rest_ic(ic_rest_dir, inputfolder, settings)
+                    frc = fvc - rest_ic
+                else: frc = fvc - ic
             erv = fvc - ic
             print("\t\t Calculating average breath") 
             avgexp_df, avginsp_df, avg_swings, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)

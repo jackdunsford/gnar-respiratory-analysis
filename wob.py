@@ -337,6 +337,7 @@ def work_of_breathing(avgexp_df, avginsp_df, erv, frc, fb, ex_stage, pdf, settin
     figs = []
     if settings['poescol'] != 0:
         if settings['campbelldiagram'] == "True":
+            print("\t\t\tGenerating Campbell diagram")
             if erv > frc:
                 insp_res_area, insp_elastic_area, peepi_area, exp_res_area, campbell_fig = dh_campbell(avgexp_df, avginsp_df, frc, ex_stage, pdf, settings)
                 exp_elastic_area = 0
@@ -357,6 +358,7 @@ def work_of_breathing(avgexp_df, avginsp_df, erv, frc, fb, ex_stage, pdf, settin
             figs.append(campbell_fig)
 
         if settings['hedstranddiagram'] == "True":
+            print("\t\t\tGenerating Hedstrand diagram")
             insp_curve_area, insp_elastic, exp_curve_area, hedstrand_fig = hedstrand(avgexp_df, avginsp_df, frc, ex_stage, settings)
             hedstrand_data = {
                 'h_IR': [round(insp_curve_area* 0.09806 * fb, 3)],
@@ -369,6 +371,7 @@ def work_of_breathing(avgexp_df, avginsp_df, erv, frc, fb, ex_stage, pdf, settin
                 output = pd.concat([output, pd.DataFrame(hedstrand_data)], axis=1)
             figs.append(hedstrand_fig)
         if settings['pvintegration'] == "True":
+            print("\t\t\tGenerating PV integration diagram")
             insp_wob, exp_wob, pv_fig = pvintegration(avgexp_df, avginsp_df, ex_stage)
             pv_data = {
                 'pv_insp': [round(insp_wob* 0.09806 * fb, 3)],

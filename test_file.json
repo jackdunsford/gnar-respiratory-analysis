@@ -1,0 +1,37 @@
+{
+    "inputfolder":"/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/Undergrad/Thesis/02/02-119 2",
+    "flowcol":17,
+    "volumecol":18,
+    "poescol":13, 
+    "pgascol":12,
+    "ignoreic":[
+        ["PCD18V1_IC040.txt", [5]],
+        ["PCD18V1_IC100.txt", [6,7,11,12]]
+    ],
+    "ignorebreath":[
+        ["PCD20V1_B000.txt", [2,3,5]],
+        ["PCD20V1_B040.txt", [1,2,3]],
+        ["PCD20V1_B100.txt", [3]],
+        ["PCD20V1_B200.txt", [13,14,15,16]]
+    ],
+
+    "samplingfrequency": 1000,
+    "peakdistance": 250,
+    "peakprominence": 0.1,
+    "workrateincrement": 20,
+    "saveiccorrection": "True", 
+    "saverawflowvolume": "True", 
+    "saveflowvolumeloops": "True", 
+    "savewobplots": "True",
+    "saveoutput": "True", 
+    "savemefv": "True", 
+    "savemefvdata": "True", 
+    "saveaveragedata": "True", 
+    "campbelldiagram": "True", 
+    "hedstranddiagram":"True", 
+    "pvintegration":"True", 
+
+    "id": "20",
+    "age":46,
+    "sex":1    
+}
