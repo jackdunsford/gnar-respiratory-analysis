@@ -10,6 +10,7 @@ This program takes CPET time series data from data acquisition softwares such as
 * Breaths are separated and averaged
 * IC is calculated to determine placement of exercise FV loops in the MEFV curve
 * The presence of EFL is determined by the presence and magnitude of overlap of the MEFV curve and FV loop
+* If esophageal pressure is collected, work of breathing can be calculated via PV integration, the Hedstrand method, or the Campbell method
 
 Aspects of this code are adapted from ![RespMech](https://github.com/emilwalsted/respmech) which is an analysis tool for analysing respiratory mechanics such as work of breathing and diaphragm EMG recorded with an esophageal balloon catheter. I am currently working on integrating GNAR into the RespMech pipeline.
 
@@ -23,8 +24,9 @@ The **gnar.py** file contains the analysis code.
 
 The **spirometry.py** file is a module integrated into the gnar.py code but can function as a stand alone library for creation and analysis of MEFV curves.
 
-The **settings.py** is where data folders will be inputted, analysis and output settings are adjusted, and where gnar.py is executed.
+Duplicate and rename the settings.json file for each exercise test you want to analyze, paste the path to the input folder.
 
+Paste the path to the duplicated settings.json file into main.py, then run main.py to execute the gnar.py script.
 
 ## Input
 The program takes time series data of time, flow, and volume collected using data acquisition software (code is designed to work seamlessly with LabChart exported .txt files). Export data into the folders specified below with two .txt files for each stage (one in "breaths" and one in "ic") and as many FVC manoevers as collected.
