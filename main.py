@@ -3,7 +3,7 @@ import gnar
 import os
 xx
 # Opening JSON file
-json_file = r'/Users/jackdunsford/Documents/dev/gnar-respiratory-analysis/test_file.json'
+json_file = r'path/to/test_file.json'
 print(json_file)
 with open(json_file) as json_file:
     settings = json.load(json_file)
