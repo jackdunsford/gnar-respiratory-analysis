@@ -1,7 +1,7 @@
 import json
 import gnar
 import os
-xx
+
 # Opening JSON file
 json_file = r'path/to/test_file.json'
 print(json_file)
