@@ -18,15 +18,43 @@ Please note, I am a researcher first, programmer second. I learned python for th
 
 
 ## Set up
-Clone this repository and open with your preferred Python IDE (I use VScode) running Python 3.12+.
 
-The **gnar.py** file contains the analysis code.
+### Prerequisites
+- Python 3.12+
+- [pip](https://pip.pypa.io/en/stable/installation/)
 
-The **spirometry.py** file is a module integrated into the gnar.py code but can function as a stand alone library for creation and analysis of MEFV curves.
+### Installation
 
-Duplicate and rename the settings.json file for each exercise test you want to analyze, paste the path to the input folder.
+**1. Clone the repository**
+```bash
+git clone https://github.com/jackdunsford/gnar-respiratory-analysis.git
+cd gnar-respiratory-analysis
+```
 
-Paste the path to the duplicated settings.json file into main.py, then run main.py to execute the gnar.py script.
+**2. (Recommended) Create and activate a virtual environment**
+
+Mac/Linux:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Windows:
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+**3. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+### Key files
+- **gnar.py** — core analysis code
+- **spirometry.py** — MEFV curve module (can also be used standalone)
+- **settings.py** — example settings file to configure per participant/session
+- **main.py** — entry point; run this to execute the analysis
 
 ## Input
 The program takes time series data of time, flow, and volume collected using data acquisition software (code is designed to work seamlessly with LabChart exported .txt files). Export data into the folders specified below with two .txt files for each stage (one in "breaths" and one in "ic") and as many FVC manoevers as collected.
@@ -45,17 +73,27 @@ To allow for the code to run each stage of exercise in order, use sequential 3 d
 
 ## Running the code
 
-Duplicate **settings.py** file (a new one for each participant or study or use duplicated as a master), add the path to your input folder as such:
+**1. Configure settings**
 
-'''
+Duplicate **settings.py** (one copy per participant or session) and set the path to your input folder:
+
+```python
 "inputfolder": r'/path/to/your/data/folder',
-'''
+```
 
-Adjust settings as desired and run.
+Adjust any other settings (column indices, sampling frequency, peak detection, etc.) as needed.
 
-Data and figures will be saved to the "output" folder, review these to determine which breaths should be ignored upon second analysis and add these files and breaths to the "ignoreic" and "ignorebreath" as shown in the example.
+**2. Run the analysis**
 
-Rerun the analysis and repeat until breath selection is clean.
+```bash
+python main.py
+```
+
+Data and figures will be saved to the `output/` folder inside your input folder.
+
+**3. Review and refine**
+
+Check the output figures to identify any incorrectly detected breaths, then add those file names and breath numbers to `"ignoreic"` and `"ignorebreath"` in your settings file. Re-run until breath selection looks clean.
 
 ## Output
 By default, the code will output three figures for each stage, IC breath correction (ignoreic in settings will tell the code to ignore erroneous peaks), raw flow/volume and corrected volume for the breaths, and the FV loop inside the MEFV curve.
