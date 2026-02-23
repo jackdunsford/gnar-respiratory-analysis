@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import statistics
@@ -10,6 +11,8 @@ import os
 from matplotlib.backends.backend_pdf  import PdfPages
 import spirometry
 import wob
+
+logger = logging.getLogger(__name__)
 
 def check_pressure_input(settings):
     if settings['pgascol'] != 0 and settings['poescol'] == 0:
@@ -82,7 +85,7 @@ def check_dir(settings):
         filelist=['breaths','ic','fvc', 'output']
         for file in filelist:
             if not os.path.isdir(os.path.join(input_dir, file)):
-                print(os.path.join(input_dir, file))
+                logger.warning("Missing folder: %s", os.path.join(input_dir, file))
                 raise Exception("Missing folders from input path")
 
 def ignorebreaths(inputfile, foric, settings):
@@ -526,7 +529,7 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ic, mefv, te, ti, vt, fb, ve, f
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
-    print("\t\t\t Determining presence of EFL and saving FV loop")
+    logger.info("Determining presence of EFL and saving FV loop")
     efl, efl_percent, efl_fig = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, filename, settings)
     if isinstance(mefv, pd.DataFrame):
         vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
@@ -658,7 +661,7 @@ def analyse(settings):
     stage_count = 0
     
     if check_fvc_folder(settings):
-        print("\t Calculating MEFV")
+        logger.info("Calculating MEFV")
         mefv = spirometry.mefv_curve(fvcfolder, settings)
         fvc = spirometry.get_fvc(mefv).round(2)
         fvc_type = "mefv"
@@ -672,7 +675,7 @@ def analyse(settings):
         ex_stage = stage_count * increment
         file_name = breaths_dir[f]
         if file_name.endswith(".txt"):
-            print("\t Loading " + file_name)
+            logger.info("Loading %s", file_name)
             ex_stage = str(ex_stage) 
             input_path = pjoin(inputfolder, "breaths", file_name)
         ic_file = ic_dir[f]
@@ -680,7 +683,7 @@ def analyse(settings):
             ic_input = pjoin(inputfolder, "ic", ic_file)  
 
         with PdfPages(pjoin(outputfolder, "figures", file_name +'_plots.pdf')) as pdf:
-            print("\t\t Calculating IC")
+            logger.info("Calculating IC")
             ic = get_ic(ic_input, pdf, settings).round(2)
             if stage_count == 0:
                 if os.path.isdir(os.path.join(inputfolder, "rest ic")):
@@ -688,10 +691,10 @@ def analyse(settings):
                     frc = fvc - rest_ic
                 else: frc = fvc - ic
             erv = fvc - ic
-            print("\t\t Calculating average breath") 
+            logger.info("Calculating average breath")
             avgexp_df, avginsp_df, avg_swings, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)
             
-            print("\t\t Calculating breathing mechanics")
+            logger.info("Calculating breathing mechanics")
             df = mechanics(avginsp_df, avgexp_df, avg_swings, ic, mefv, te, ti, vt, fb, ve, frc, file_name, ex_stage, pdf, settings)
             # add_dataframe_to_pdf(pdf, df,file_name)
         stage_count+=1
@@ -700,7 +703,7 @@ def analyse(settings):
 
         plt.close()
     if settings['saveoutput']:
-        print("\t Saving all data")
+        logger.info("Saving all data")
         outputdata.to_excel(pjoin(outputfolder, "data",  "exercise_data.xlsx"), index=False)
-        print("Analysis complete, find data and figures at: " + outputfolder)
+        logger.info("Analysis complete, find data and figures at: %s", outputfolder)
     return outputdata

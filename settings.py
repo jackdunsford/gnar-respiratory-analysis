@@ -1,5 +1,8 @@
+import logging
 import gnar
 import os
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
  
 settings = {
     "inputfolder": r'/Users/jackdunsford/Library/CloudStorage/OneDrive-Personal/GNAR/sample_data/01-101',
@@ -31,5 +34,5 @@ settings = {
 }
 
 if __name__ == '__main__':
-    print("Analyzing " + os.path.basename(settings['inputfolder']))
+    logging.info("Analyzing %s", os.path.basename(settings['inputfolder']))
     output_df = gnar.analyse(settings)
