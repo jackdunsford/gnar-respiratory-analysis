@@ -35,17 +35,17 @@ Settings defaults/examples
     "peakdistance": 250, #when detecting peaks to correct for volume drift. Default should be 1/4 of sampling frequency. i.e. 0.25 seconds between point detection. 
     "peakprominence": 0.1, #minimum prominence of volume peaks to e detected as a breath
     "workrateincrement": 20, #work rate increments for the test.
-    "saveiccorrection": "True", #adjust what data and plots are saved
-    "saverawflowvolume": "True", 
-    "saveflowvolumeloops": "True", 
-    "savewobplots": "True",
-    "saveoutput": "True", 
-    "savemefv": "True", 
-    "savemefvdata": "True", 
-    "saveaveragedata": "True", 
-    "campbelldiagram": "True",  #pick which WOB method to use. For first time running data through, set all to false to make sure the flow and volume data is correct.
-    "hedstranddiagram":"True", 
-    "pvintegration":"True", 
+    "saveiccorrection": true, #adjust what data and plots are saved
+    "saverawflowvolume": true,
+    "saveflowvolumeloops": true,
+    "savewobplots": true,
+    "saveoutput": true,
+    "savemefv": true,
+    "savemefvdata": true,
+    "saveaveragedata": true,
+    "campbelldiagram": true,  #pick which WOB method to use. For first time running data through, set all to false to make sure the flow and volume data is correct.
+    "hedstranddiagram": true,
+    "pvintegration": true,
 
     "id": "20", # participant ID, will be added to the output excel file
     "age":46,
