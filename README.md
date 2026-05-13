@@ -1,4 +1,5 @@
 # Grand Numerical Analysis of Respiration
+** EMGdi analysis updates are not reflected in the below instructions
 
 ## About GNAR
 This version of Grand Numerical Analysis of Respiration or GNAR is a remake of the original "GNARx" program written in LabView, created to identify and quantify expiratory flow limitation during exercise. 
