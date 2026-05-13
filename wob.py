@@ -79,17 +79,17 @@ def hedstrand(avgexp_df, avginsp_df, frc_y, ex_stage, settings):
         intersections = [p for p in intersection.geoms][-1]
     else: intersections = intersection
 
-
-    exp_y_curve = avgexp_df['volume'][avgexp_df['volume'] <= intersections.y]
-    exp_x_curve = avgexp_df['poes'].iloc[:len(exp_y_curve)]
-    exp_x_line = np.linspace(x_eelv, intersections.x, len(exp_x_curve))
-    exp_res_curve = plt.fill_betweenx(exp_y_curve, exp_x_curve, exp_x_line,color='blue',alpha=0.6, edgecolor=None, zorder=1)
-    exp_curve_area = 0
-    for path in exp_res_curve.get_paths():
-        vertices = path.vertices
-        exp_curve_area += 0.5 * np.abs(np.dot(vertices[:, 0], np.roll(vertices[:, 1], 1)) -
-                                    np.dot(vertices[:, 1], np.roll(vertices[:, 0], 1)))
-
+    if not intersections.is_empty:
+        exp_y_curve = avgexp_df['volume'][avgexp_df['volume'] <= intersections.y]
+        exp_x_curve = avgexp_df['poes'].iloc[:len(exp_y_curve)]
+        exp_x_line = np.linspace(x_eelv, intersections.x, len(exp_x_curve))
+        exp_res_curve = plt.fill_betweenx(exp_y_curve, exp_x_curve, exp_x_line,color='blue',alpha=0.6, edgecolor=None, zorder=1)
+        exp_curve_area = 0
+        for path in exp_res_curve.get_paths():
+            vertices = path.vertices
+            exp_curve_area += 0.5 * np.abs(np.dot(vertices[:, 0], np.roll(vertices[:, 1], 1)) -
+                                        np.dot(vertices[:, 1], np.roll(vertices[:, 0], 1)))
+    else: exp_curve_area = 0
 
     insp_y_curve = avginsp_df['volume']
     insp_x_curve = avginsp_df['poes']

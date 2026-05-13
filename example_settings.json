@@ -1,0 +1,54 @@
+{
+    "inputfolder":"/Users/jackdunsford/Desktop/GNAR test",
+    "flowcol":17,
+    "volumecol":20,
+    "poescol":9, 
+    "pgascol":10,
+    "emgscmcol":0,
+    "emgscacol":0,
+    "emgdicols":[4,5,6,7,8],
+    "fvc": 0,
+    "ignoreic":[
+        ["PCD18V1_IC040.txt", [5]],
+        ["PCD18V1_IC100.txt", [6,7,11,12]]
+    ],
+    "ignorebreath":[
+        ["PCD01V1_B020.txt", [4]],
+        ["PCD01V1_B060.txt", [5,6,7,8]],
+        ["PCD20V1_B100.txt", [3]],
+        ["PCD20V1_B200.txt", [13,14,15,16]]
+    ],
+    "ignoreemg":[
+        ["PCD01V1_B120.txt", [4,5]]
+    ],
+    
+    "samplingfrequency": 1000,
+    "peakdistance": 250,
+    "peakprominence": 0.1,
+    "workrateincrement": 20,
+    "saveiccorrection": "True", 
+    "saverawflowvolume": "True", 
+    "saveflowvolumeloops": "True", 
+    "savewobplots": "True",
+    "saveoutput": "True", 
+    "savemefv": "True", 
+    "savemefvdata": "True", 
+    "saveaveragedata": "True", 
+    "campbelldiagram": "False", 
+    "hedstranddiagram":"True", 
+    "pvintegration":"True", 
+
+    "ecgsubmethod": "",
+    "save_emg_proc_figures": "True",
+    "saveemgoutput": "True",
+    "ecgmethod": "basic",
+    "shareecgpeaksch": 3,
+    "ecgwindowsize": 0.4,
+    "ecgdistance": 300,
+    "ecgheight": 0.15,
+    "ecgprominence": 0.1, 
+
+    "id": "20",
+    "age":46,
+    "sex":1 
+}

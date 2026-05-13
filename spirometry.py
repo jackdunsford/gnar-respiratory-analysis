@@ -12,7 +12,7 @@ def get_peak_flow(mefv):
     return peak_flow
 
 def get_fev1(mefv):
-    mefv['time'] = (0.02 / mefv['flow']).cumsum().round(2)
+    mefv['time'] = (0.01 / mefv['flow']).cumsum().round(2)
     mefv['time'] = mefv['time'].values[::-1]
     fev1 = mefv.loc[mefv['time'] <= 1.00, 'volume'].iloc[0]
     
