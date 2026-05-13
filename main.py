@@ -3,7 +3,7 @@ import gnar
 import os
 
 # Opening JSON file
-json_file = r'/Volumes/T7/10 - EMGdi Study/EMGdi study data/208/208_MS.json'
+json_file = r'path/to/test_file.json'
 print(json_file)
 with open(json_file) as json_file:
     settings = json.load(json_file)
