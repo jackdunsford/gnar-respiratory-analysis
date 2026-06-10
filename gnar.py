@@ -11,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import spirometry
 import wob
 import emgdi_processing
+from zhan_wavelet_adaptive_filter import wavelet_adaptive_filter
 
 
 def check_pressure_input(settings):
@@ -71,8 +72,8 @@ def add_dataframe_to_pdf(pdf, dataframe, title):
     table.auto_set_column_width(col=list(range(len(dataframe.columns))))
 
     # Save figure to PDF
-    pdf.savefig(fig)
-    plt.close(fig)
+    # pdf.savefig(fig)
+    # plt.close(fig)
 
 def check_make_dir(path):
     if not os.path.exists(path): 
@@ -134,7 +135,7 @@ def correcttrendic(volume, input_path, pdf, settings):
 
     peaks = signal.find_peaks((vol), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
     valleys = signal.find_peaks((vol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
-    peaks = peaks[:len(peaks)-1]
+    peaks = peaks[:len(peaks)-2]
     ib = ignorebreaths(input_path, "ic", settings)
     if len(ib) > 0:
         peaks = np.delete(peaks, ib)
@@ -146,8 +147,8 @@ def correcttrendic(volume, input_path, pdf, settings):
     corvol = volume - peaksresampled
     
     if settings['saveiccorrection'] and pdf:
-        fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(15, 10))
-        fig.suptitle("Trend correction and selection of IC volume for " + os.path.basename(input_path), fontsize=15)
+        ic_fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(15, 10))
+        ic_fig.suptitle("Trend correction and selection of IC volume for " + os.path.basename(input_path), fontsize=15)
         axes[0].plot(volume)
         axes[0].plot(peaks, vol[peaks], "x", markersize=20)
         axes[0].set_title("Uncorrected volume with end of expiration marked")
@@ -176,8 +177,8 @@ def correcttrendic(volume, input_path, pdf, settings):
                     axes[x].axvspan(valleys[breathno], valleys[breathno + 1], facecolor='gray', alpha=0.2)
                     
 
-        pdf.savefig()
-        plt.close()
+        pdf.savefig(ic_fig)
+        plt.close(ic_fig)
     
     return corvol
 
@@ -209,11 +210,127 @@ def get_ic(ic_path, pdf, settings):
 
     breaths = pd.read_csv(ic_path, delimiter='\t')
     volume = breaths.iloc[:,settings['volumecol']].to_numpy()
+
+    # if len(settings['emgdicols']) != 0:
+    #     count=0
+    #     for col in settings['emgdicols']:
+    #         if count==0:
+    #             new_col = np.nan_to_num(breaths.iloc[:, col].to_numpy(), nan=1)
+    #             emgcols_df = pd.DataFrame({'emgcol'+str(count+1): new_col})           
+    #         else:
+    #             new_col = np.nan_to_num(breaths.iloc[:, col].to_numpy(), nan=1)
+    #             emgcols_df['emgcol'+str(count+1)] = new_col
+    #         count+=1
+
     trendcorvol = correcttrendic(volume, ic_path, pdf, settings)
     corvol = trendcorvol
     peaks = signal.find_peaks((corvol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
     ic = abs(corvol[peaks][-1])
+
+    # max_emgdi = 
+    # max_emgscm = 
+    # max_emgsca = 
+
     return ic
+
+def get_max_emg(path, settings, pdf):
+    df = pd.read_csv(path, 
+            delimiter='\t')
+    ic_frame = (5000 / (settings['samplingfrequency']/1000))*-1
+    if len(settings['emgdicols']) != 0:
+        count=0
+        for col in settings['emgdicols']:
+            if count==0:
+                new_col = np.nan_to_num(df.iloc[:, col].to_numpy(), nan=1)
+                new_col = new_col[int(ic_frame):]
+                emgcols_ic_df = pd.DataFrame({'emgcol'+str(count+1): new_col})           
+            else:
+                new_col = np.nan_to_num(df.iloc[:, col].to_numpy(), nan=1)
+                new_col = new_col[int(ic_frame):]
+                emgcols_ic_df['emgcol'+str(count+1)] = new_col
+            count+=1
+        
+        emgdi_ic_rms_df, emg_ic_proc_figs = emgdi_processing.process_emgdi(emgcols_ic_df, settings, pdf)
+        emgdi_highest = 0
+        emgdi_highest_ch = 0
+        emgdi_highest_idx = 0
+        ch_count = 0
+        for ch in emgdi_ic_rms_df:
+            max_rms = emgdi_ic_rms_df[ch].max()
+            if max_rms >= emgdi_highest:
+                emgdi_highest = max_rms
+                emgdi_highest_ch = ch_count
+                emgdi_highest_idx = emgdi_ic_rms_df[ch].idxmax()
+            ch_count+=1
+        ## ADD scm and sca here
+
+        fig_emg_ic, ax_emg_ic = plt.subplots(nrows=5, ncols=1, figsize=(15, 10), constrained_layout=True)
+        fig_emg_ic.suptitle("EMG RMS during IC for " + os.path.basename(path), fontsize=15)
+
+        ax_emg_ic[0].plot(emgdi_ic_rms_df['emgcol1'])
+        ax_emg_ic[0].set_title("EMG channel 1")
+        ax_emg_ic[1].plot(emgdi_ic_rms_df['emgcol2'])
+        ax_emg_ic[1].set_title("EMG channel 2")
+        ax_emg_ic[2].plot(emgdi_ic_rms_df['emgcol3'])
+        ax_emg_ic[2].set_title("EMG channel 3")
+        ax_emg_ic[3].plot(emgdi_ic_rms_df['emgcol4'])
+        ax_emg_ic[3].set_title("EMG channel 4")
+        ax_emg_ic[4].plot(emgdi_ic_rms_df['emgcol5'])
+        ax_emg_ic[4].set_title("EMG channel 5")
+
+
+        # plot max EMG RMS
+        ax_emg_ic[emgdi_highest_ch].plot(emgdi_highest_idx, emgdi_highest, marker='o', color='r')
+        pdf.savefig(fig_emg_ic)
+        plt.close(fig_emg_ic)
+    else: emgdi_highest = 0
+    
+    if (settings['emgscmcol'] != 0) or (settings['emgscmcol'] != 0):
+        fig_exdi_ic, ax_exdi_ic  = plt.subplots(nrows=2, ncols=1, figsize=(15, 7), constrained_layout=False)
+        fig_exdi_ic.suptitle("EMG RMS of extradiaphragmatic muscles during IC for " + os.path.basename(path), fontsize=15)
+        if settings['emgscmcol'] != 0:
+            emgscm_ic = df.iloc[:, settings['emgscmcol']].to_numpy()
+            emgscm_ic = emgscm_ic[int(ic_frame):]
+            emgscm_ic_cleaned, info = wavelet_adaptive_filter(
+                emgscm_ic,
+                wavelet="db4",   # paper's best basis
+                level=4,         # paper uses 4 at 2000 Hz
+                K=1.5,           # tune this: lower = more aggressive
+                Lb=5,            # exclusion zone radius
+                Ub=20,           # averaging reach
+            )
+            emgscm_ic_rms = emgdi_processing.rolling_rms(emgscm_ic_cleaned, 100)
+            emgscm_highest = emgscm_ic_rms.max()
+            emgscm_highest_idx = emgscm_ic_rms.argmax()
+            ax_exdi_ic[0].plot(emgscm_ic_rms)
+            ax_exdi_ic[0].plot(emgscm_highest_idx, emgscm_highest, marker='o', color='r')
+        else: emgscm_highest = 0
+        if settings['emgscacol'] != 0:
+            emgsca_ic = df.iloc[:, settings['emgscacol']].to_numpy()
+            emgsca_ic = emgsca_ic[int(ic_frame):]
+            emgsca_ic_cleaned, info = wavelet_adaptive_filter(
+                emgsca_ic,
+                wavelet="db4",   # paper's best basis
+                level=4,         # paper uses 4 at 2000 Hz
+                K=1.5,           # tune this: lower = more aggressive
+                Lb=5,            # exclusion zone radius
+                Ub=20,           # averaging reach
+            )
+            emgsca_ic_rms = emgdi_processing.rolling_rms(emgsca_ic_cleaned, 100)
+            emgsca_highest = emgsca_ic_rms.max()
+            emgsca_highest_idx = emgsca_ic_rms.argmax()
+            ax_exdi_ic[1].plot(emgsca_ic_rms)
+            ax_exdi_ic[1].plot(emgsca_highest_idx, emgsca_highest, marker='o', color='r')
+        else: emgsca_highest = 0
+
+        pdf.savefig(fig_exdi_ic)
+        plt.close(fig_exdi_ic)
+    else:
+        emgscm_highest = 0
+        emgsca_highest = 0
+
+    return emgdi_highest, emgscm_highest, emgsca_highest
+
 
 def get_ic_r(ic_path, settings):
 
@@ -276,12 +393,13 @@ def pressure_swings(pressure, endinsp_pts, ib):
     return statistics.mean(poes_swings)
 
 def get_exdi_emg(emg,  endinsp_pts, endexp_pts, emgib, title):
-    emg_rms = emgdi_processing.rolling_rms(emg, 200)
+    emg_rms = emgdi_processing.rolling_rms(emg, 100)
     
     avg_emg = []
     int_emg = []
     max_emg = []
-    
+    max_idx = []
+
     for pt in range(len(endexp_pts)-1):
         breathno = pt + 1
         if breathno not in emgib:
@@ -289,8 +407,26 @@ def get_exdi_emg(emg,  endinsp_pts, endexp_pts, emgib, title):
             avg_emg.append(breath_segment.mean())
             int_emg.append(np.trapezoid(breath_segment))
             max_emg.append(breath_segment.max())
+            max_idx.append(breath_segment.argmax())
 
-    return avg_emg, int_emg, max_emg
+    # Drop breaths that are outliers (>1.96 SD from the mean) in any of the three metrics
+    avg_arr = np.asarray(avg_emg)
+    int_arr = np.asarray(int_emg)
+    max_arr = np.asarray(max_emg)
+
+    mask = (
+        (np.abs(avg_arr - avg_arr.mean()) <= 1.96 * avg_arr.std()) &
+        (np.abs(int_arr - int_arr.mean()) <= 1.96 * int_arr.std()) &
+        (np.abs(max_arr - max_arr.mean()) <= 1.96 * max_arr.std())
+    )
+
+    removed_idx = np.where(~mask)[0].tolist()
+
+    avg_emg = avg_arr[mask].tolist()
+    int_emg = int_arr[mask].tolist()
+    max_emg = max_arr[mask].tolist()
+
+    return avg_emg, int_emg, max_emg, removed_idx
 
 def pressure_time_product(pressure, endinsp_pts, endexp_pts, ib):
     p_integrals = []
@@ -321,16 +457,33 @@ def average_breath(path, erv, pdf, settings):
     if settings['pgascol'] != 0:
         pgas = df.iloc[:, settings['pgascol']].to_numpy()
     else: pgas = np.zeros(len(volumeraw))
-    pdi = pgas - poes
+    
 
         #correct volume
     volumeraw = volumeraw - volumeraw[0]
     if settings['emgscmcol'] != 0:
         emgscm = df.iloc[:, settings['emgscmcol']].to_numpy()
-    else: emgscm = np.zeros(len(volumeraw)) 
+        emgscm_cleaned, _ = wavelet_adaptive_filter(
+            emgscm,
+            wavelet="db4",   
+            level=4,         
+            K=1.5,           
+            Lb=5,            
+            Ub=20,           
+        )           
+
+    else: emgscm_cleaned = np.zeros(len(volumeraw)) 
     if settings['emgscacol'] != 0:
         emgsca = df.iloc[:, settings['emgscacol']].to_numpy()
-    else: emgsca = np.zeros(len(volumeraw))
+        emgsca_cleaned, _ = wavelet_adaptive_filter(
+            emgsca,
+            wavelet="db4",   
+            level=4,         
+            K=1.5,           
+            Lb=5,            
+            Ub=20,           
+        ) 
+    else: emgsca_cleaned = np.zeros(len(volumeraw))
     
     ignore_cols = []
 
@@ -349,8 +502,9 @@ def average_breath(path, erv, pdf, settings):
         
         #TODO add noiseprofile and figures bool to settings, 
         # set up pdf outputs
-        emgdi_rms_df = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
-        plt.close()
+        emgdi_rms_df, emg_proc_figs = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
+        # plt.close()
+
     else: 
         emgdi_rms_df = pd.DataFrame({
             'emgcol1': np.zeros(len(flow)),
@@ -359,11 +513,13 @@ def average_breath(path, erv, pdf, settings):
             'emgcol4': np.zeros(len(flow)),
             'emgcol5': np.zeros(len(flow))
         })
+        emg_proc_figs = []
 
     #trims breaths to start on inspiration and end on expiration
     # try:
     #TODO add emgcols to trim
-    flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm, emgsca = trim(flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm, emgsca)
+    flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm, emgsca = trim(flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm_cleaned, emgsca_cleaned)
+    pdi = pgas - poes
     # except:
     #     print('i')
     #     volume = correcttrend(volumeraw, settings)
@@ -405,41 +561,41 @@ def average_breath(path, erv, pdf, settings):
     emgib = ignorebreaths(path, "emg", settings)
     
     if settings['saverawflowvolume']:
-      fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(15, 10), constrained_layout=True)
-      fig.suptitle("Input flow and volume for " + os.path.basename(path), fontsize=15)
-      ax[0].plot(flow)
-      ax[0].set_title("Raw Flow")
-      ax[0].set_ylabel("Flow (L/s)")
-      ax[0].axhline(0, alpha=0.2)
-      ax[1].plot(poes)
-      ax[1].set_title("Oesophageal Pressure")
-      ax[1].set_ylabel("Peso (cmH2O)")
-      ax[2].plot(pdi)
-      ax[2].set_title("Transdi Pressure")
-      ax[2].set_ylabel("Pdi (cmH2O)")
-      ax[3].plot(volumeraw)
-      ax[3].set_title("Volume (Uncorrected)")
-      ax[3].set_ylabel("Volume(L)")
-      ax[4].plot(volume)
-      ax[4].set_title("Volume (Corrected)")
-      ax[4].set_ylabel("Volume (L)")
-      ax[4].set_xlabel("Time (ms)")
-      for x in range(4):
-          count=1
-          yl = list(ax[x].get_ylim())
-          for point in endinsp_pts:
-              ax[x].axvline(x=point, color="grey", ls="--", lw=1)
-              if count != len(endinsp_pts):
-                  text = " #" + str(count)
-                  ax[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
-                  count+=1
-          for point2 in endexp_pts:
-            ax[x].axvline(x=point2, color="grey", ls="--", lw=0.5)
-          if len(ib) > 0:
-              for breathno in ib:
-                  ax[x].axvspan(endinsp_pts[breathno], endinsp_pts[breathno + 1], facecolor='gray', alpha=0.2)
-    # pdf.savefig()
-    # plt.close()
+        raw_fig, ax = plt.subplots(nrows=5, ncols=1, figsize=(15, 10), constrained_layout=True)
+        raw_fig.suptitle("Input flow and volume for " + os.path.basename(path), fontsize=15)
+        ax[0].plot(flow)
+        ax[0].set_title("Raw Flow")
+        ax[0].set_ylabel("Flow (L/s)")
+        ax[0].axhline(0, alpha=0.2)
+        ax[1].plot(poes)
+        ax[1].set_title("Oesophageal Pressure")
+        ax[1].set_ylabel("Peso (cmH2O)")
+        ax[2].plot(pdi)
+        ax[2].set_title("Transdi Pressure")
+        ax[2].set_ylabel("Pdi (cmH2O)")
+        ax[3].plot(volumeraw)
+        ax[3].set_title("Volume (Uncorrected)")
+        ax[3].set_ylabel("Volume(L)")
+        ax[4].plot(volume)
+        ax[4].set_title("Volume (Corrected)")
+        ax[4].set_ylabel("Volume (L)")
+        ax[4].set_xlabel("Time (ms)")
+        for x in range(4):
+            count=1
+            yl = list(ax[x].get_ylim())
+            for point in endinsp_pts:
+                ax[x].axvline(x=point, color="grey", ls="--", lw=1)
+                if count != len(endinsp_pts):
+                    text = " #" + str(count)
+                    ax[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
+                    count+=1
+            for point2 in endexp_pts:
+                ax[x].axvline(x=point2, color="grey", ls="--", lw=0.5)
+            if len(ib) > 0:
+                for breathno in ib:
+                    ax[x].axvspan(endinsp_pts[breathno], endinsp_pts[breathno + 1], facecolor='gray', alpha=0.2)
+        pdf.savefig(raw_fig)
+        plt.close(raw_fig)
     
     if len(settings['emgdicols']) != 0:
         if settings['saveemgoutput']:
@@ -475,8 +631,8 @@ def average_breath(path, erv, pdf, settings):
                     for breathno in emgib:
                         ax_emg[x].axvspan(endinsp_pts[breathno], endinsp_pts[breathno + 1], facecolor='gray', alpha=0.2)
 
-            # pdf.savefig()
-            # plt.close()
+            pdf.savefig(fig_emg)
+            plt.close(fig_emg)
     
     #calculates poes swings if a poes column is given
     if settings['poescol'] != 0:
@@ -505,26 +661,54 @@ def average_breath(path, erv, pdf, settings):
     else: emgdi_data = [0,0,0]
     
     if (settings['emgscmcol'] != 0) or (settings['emgscmcol'] != 0):
-        fig_exdi, ax_exdi  = plt.subplots(nrows=2, ncols=1, figsize=(15, 7), constrained_layout=True)
+        fig_exdi, ax_exdi  = plt.subplots(nrows=4, ncols=1, figsize=(15, 7), constrained_layout=False)
         fig_exdi.suptitle("EMG RMS of extradiaphragmatic muscles for " + os.path.basename(path), fontsize=15)
+        
     
-    if settings['emgscmcol'] != 0:
-        emgscm_avg, emgscm_int, emgscm_max = get_exdi_emg(emgscm, endinsp_pts, endexp_pts, ib, "EMGscm")
-        emgscm_data = [np.array(emgscm_avg).mean(), np.array(emgscm_int).mean(), np.array(emgscm_max).mean()]
-        ax_exdi[0].plot(emgdi_processing.rolling_rms(emgscm, 200))
-        ax_exdi[0].set_title("Sternocleidomastoid")
-    else:emgscm_data = [0,0,0]   
+        if settings['emgscmcol'] != 0:
+            emgscm_avg, emgscm_int, emgscm_max, emgscm_removed = get_exdi_emg(emgscm_cleaned, endinsp_pts, endexp_pts, ib, "EMGscm")
+            emgscm_data = [np.array(emgscm_avg).mean(), np.array(emgscm_int).mean(), np.array(emgscm_max).mean()]
+            ax_exdi[0].plot(emgscm_cleaned)
+            ax_exdi[0].set_title("Sternocleidomastoid raw")
+            ax_exdi[1].plot(emgdi_processing.rolling_rms(emgscm_cleaned, 200))
+            ax_exdi[1].set_title("Sternocleidomastoid RMS")
+            # for point in emgscm_removed:
+            #     ax_exdi[1].axvspan((point - 100), (point + 100), color='gray', alpha=0.5)
+        else:emgscm_data = [0,0,0]   
 
-    if settings['emgscacol'] != 0:
-        emgsca_avg, emgsca_int, emgsca_max = get_exdi_emg(emgsca, endinsp_pts, endexp_pts, ib, "EMGsca")
-        emgsca_data = [np.array(emgsca_avg).mean(), np.array(emgsca_int).mean(), np.array(emgsca_max).mean()]
-        ax_exdi[1].plot(emgdi_processing.rolling_rms(emgsca, 200))
-        ax_exdi[1].set_title("Scalene")
-    else:emgsca_data = [0,0,0]
+        if settings['emgscacol'] != 0:
+            emgsca_avg, emgsca_int, emgsca_max, emgsca_removed = get_exdi_emg(emgsca_cleaned, endinsp_pts, endexp_pts, ib, "EMGsca")
+            emgsca_data = [np.array(emgsca_avg).mean(), np.array(emgsca_int).mean(), np.array(emgsca_max).mean()]
+            ax_exdi[2].plot(emgsca_cleaned)
+            ax_exdi[2].set_title("Scalene raw")
+            ax_exdi[3].plot(emgdi_processing.rolling_rms(emgsca_cleaned, 200))
+            ax_exdi[3].set_title("Scalene RMS")
+            # for point in emgsca_removed:
+            #     ax_exdi[3].axvspan((point - 100), (point + 100), color='gray', alpha=0.5)    
+        else:emgsca_data = [0,0,0]
+
+        for x in range(4):
+                count=1
+                yl = list(ax_exdi[x].get_ylim())
+                for point in endinsp_pts:
+                    ax_exdi[x].axvline(x=point, color="grey", ls="--", lw=1)
+                    if count != len(endinsp_pts):
+                        text = " #" + str(count)
+                        ax_exdi[x].text(point, 0.5, text, fontsize=8)
+                        # ax_exdi[x].text(point, yl[1]-((yl[1]-yl[0])*0.05), text, fontsize=8)
+                        count+=1
+                for point2 in endexp_pts:
+                    ax_exdi[x].axvline(x=point2, color="grey", ls="--", lw=0.5)
+                if len(emgib) > 0:
+                    for breathno in emgib:
+                        ax_exdi[x].axvspan(endinsp_pts[breathno], endinsp_pts[breathno + 1], facecolor='gray', alpha=0.2)
+    else:
+        emgscm_data = [0,0,0]  
+        emgsca_data = [0,0,0]
     
-    # if (settings['emgscmcol'] != 0) or (settings['emgscmcol'] != 0):
-    pdf.savefig()
-    plt.close()
+    if (settings['emgscmcol'] != 0) or (settings['emgscmcol'] != 0):
+        pdf.savefig(fig_exdi)
+        plt.close(fig_exdi)
     
     #separates expired from inspired breaths and takes the average based on % of tidal volume for each breath
     totalexpbreaths = pd.DataFrame(columns=['flow', 'volume', 'poes', 'percent'])
@@ -618,9 +802,9 @@ def average_breath(path, erv, pdf, settings):
         averageexpbreath.loc[averageexpbreath.index[-1], 'poes'] = poes_end
         averageinspbreath.loc[averageinspbreath.index[-1], 'poes'] = poes_end
 
-    return averageexpbreath, averageinspbreath, avg_swings, ptp_di, ptp_oes, emgdi_data, emgscm_data, emgsca_data, te, ti, fb, vt, ve
+    return averageexpbreath, averageinspbreath, avg_swings, ptp_di, ptp_oes, emgdi_data, emgscm_data, emgsca_data, te, ti, fb, vt, ve, emg_proc_figs
 
-def get_efl_percent(mefv, avg_expired, avg_inspired, filename, settings):
+def get_efl_percent(mefv, avg_expired, avg_inspired, filename, pdf, settings):
 
     count=0
     avg_expired.volume = avg_expired.volume.values[::-1]
@@ -662,8 +846,8 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, filename, settings):
         plt.title("Flow volume loops for " + os.path.basename(filename), fontsize=15)
         efl = 0
         efl_percent = 0
-        # pdf.savefig()
-        # plt.close()
+        # pdf.savefig(efl_fig)
+        # plt.close(efl_fig)
 
     if settings['saveaveragedata']:
         averagefv = pd.concat([avg_expired, avg_inspired])
@@ -710,8 +894,8 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, em
     erv = (fvc - ic).round(2)
     irv = (erv + vt).round(2)
 
-    print("\t\t\t Determining presence of EFL and saving FV loop")
-    efl, efl_percent, efl_fig = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, filename, settings)
+    print("\t\t\tDetermining presence of EFL and saving FV loop")
+    efl, efl_percent, efl_fig = get_efl_percent(mefv, avg_expired_efl, avg_inspired_efl, filename, pdf, settings)
     if isinstance(mefv, pd.DataFrame):
         vecap = get_vecap(mefv,vt,te,ti,erv,irv)    
     else:
@@ -737,28 +921,31 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, em
                  'Workrate': [ex_stage],
                  'Fb': [round(fb, 3)],
                  'VT': [vt.round(3)],
+                 'VT%': [((vt/fvc)*100).round(3)],
                  'VE': [ve.round(3)],
                  'IC': [ic.round(3)],
+                 'IC%': [((ic/fvc)*100).round(3)],
                  'ERV': [erv.round(3)],
+                 'ERV%': [((erv/fvc)*100).round(3)],
                  'IRV': [irv.round(3)],
-                 'VT/IC':[(vt/ic).round(2)],
-                 'VT/FVC':[(vt/fvc).round(2)],
-                 'Ti':[ti.round(2)],
-                 'Te':[te.round(2)],
-                 'Ti/Ttot':[(ti/(ti+te)).round(2)],
+                 'IRV%': [((irv/fvc)*100).round(3)],
+                 'VT/IC':[(vt/ic).round(3)],
+                 'Ti':[ti.round(3)],
+                 'Te':[te.round(3)],
+                 'Ti/Ttot':[(ti/(ti+te)).round(3)],
                  'poes_swing': [round(avg_swings[0], 3)],
                  'pdi_swing': [round(avg_swings[1],3)],
                  'ptp_di': [round(ptp_di, 3)],
                 #  'ptp_oes': [round(ptp_oes, 3)],
                  'emgdi_avg':[round(emgdi_data[0], 3)],
                  'emgdi_integral':[round(emgdi_data[1], 3)],
-                 'emgdi_max':[round(emgdi_data[2], 3)],
+                 'emgdi_max':[round(emgdi_data[2], 4)],
                  'emgscm_avg':[round(emgscm_data[0], 3)],
                  'emgscm_integral':[round(emgscm_data[1], 3)],
-                 'emgscm_max':[round(emgscm_data[2], 3)],
+                 'emgscm_max':[round(emgscm_data[2], 4)],
                  'emgsca_avg':[round(emgsca_data[0], 3)],
                  'emgsca_integral':[round(emgsca_data[1], 3)],
-                 'emgsca_max':[round(emgsca_data[2], 3)],                 
+                 'emgsca_max':[round(emgsca_data[2], 4)],                 
                  'VEcap': [round(vecap, 3)],
                  'VEcap(%)': [vecap_percent],
                  'EFL': [efl],
@@ -817,7 +1004,7 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, em
 
     #save three panel figure to a pdf
     pdf.savefig(combined_fig)
-    plt.close()
+    plt.close(combined_fig)
     return df
 
 def listdir_nohidden(path):
@@ -890,19 +1077,47 @@ def analyse(settings):
                     frc = fvc - rest_ic
                 else: frc = fvc - ic
             erv = fvc - ic
+            emgdi_ic_max, emgscm_ic_max, emgsca_ic_max  = get_max_emg(ic_input, settings, pdf)
             print("\t\t Calculating average breath") 
-            avgexp_df, avginsp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, emgscm_data, emgsca_data, te, ti, fb, vt, ve = average_breath(input_path, erv, pdf, settings)
+            avgexp_df, avginsp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, emgscm_data, emgsca_data, te, ti, fb, vt, ve, emg_proc_figs  = average_breath(input_path, erv, pdf, settings)
             
             print("\t\t Calculating breathing mechanics")
             df = mechanics(avginsp_df, avgexp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, emgscm_data, emgsca_data, ic, mefv, te, ti, vt, fb, ve, frc, file_name, ex_stage, pdf, settings)
+            
+            df.insert(26, 'emgdi_ic_max', [emgdi_ic_max])
+            df.insert(30, 'emgscm_ic_max', [emgscm_ic_max])
+            df.insert(34, 'emgsca_ic_max', [emgsca_ic_max])
+
             # add_dataframe_to_pdf(pdf, df,file_name)
+            if settings["save_emg_proc_figures"]:
+                for emg_f in emg_proc_figs:
+                    pdf.savefig(emg_f)
         stage_count+=1
         
         outputdata = pd.concat([outputdata, df])
+        
+        # pdf.savefig()
 
-        plt.close()
+                # print(emg_f)
+        
+        plt.close('all')
+
+    maximum_emgdi = outputdata['emgdi_ic_max'].max()
+    emgdi_percent_max = (outputdata['emgdi_max']/maximum_emgdi)*100
+
+    maximum_emgscm = outputdata['emgscm_ic_max'].max()
+    emgscm_percent_max = (outputdata['emgscm_max']/maximum_emgscm)*100
+
+    maximum_emgsca = outputdata['emgsca_ic_max'].max()
+    emgsca_percent_max = (outputdata['emgsca_max']/maximum_emgsca)*100
+
+    outputdata.insert(27, 'emgdi_percent_max', emgdi_percent_max)
+    outputdata.insert(32, 'emgscm_percent_max', emgscm_percent_max)
+    outputdata.insert(37, 'emgsca_percent_max', emgsca_percent_max)
+
+
     if settings['saveoutput']:
         print("\t Saving all data")
-        outputdata.to_excel(pjoin(outputfolder, "data",  "exercise_data.xlsx"), index=False)
+        outputdata.to_excel(pjoin(outputfolder, "data", str(os.path.basename(inputfolder)) +  "_exercise_data.xlsx"), index=False)
         print("Analysis complete, find data and figures at: " + outputfolder)
     return outputdata
