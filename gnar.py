@@ -76,7 +76,7 @@ def add_dataframe_to_pdf(pdf, dataframe, title):
     # plt.close(fig)
 
 def check_make_dir(path):
-    if not os.path.exists(path): 
+    if not os.path.exists(path):
         os.makedirs(path)
 
 def check_dir(settings):
@@ -135,7 +135,7 @@ def correcttrendic(volume, input_path, pdf, settings):
 
     peaks = signal.find_peaks((vol), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
     valleys = signal.find_peaks((vol*-1), prominence=settings['peakprominence'], distance=settings['peakdistance'])[0]
-    peaks = peaks[:len(peaks)-2]
+    peaks = peaks[:len(peaks)-1]
     ib = ignorebreaths(input_path, "ic", settings)
     if len(ib) > 0:
         peaks = np.delete(peaks, ib)
@@ -250,7 +250,9 @@ def get_max_emg(path, settings, pdf):
                 emgcols_ic_df['emgcol'+str(count+1)] = new_col
             count+=1
         
-        emgdi_ic_rms_df, emg_ic_proc_figs = emgdi_processing.process_emgdi(emgcols_ic_df, settings, pdf)
+        # emgdi_ic_rms_df, emg_ic_proc_figs = emgdi_processing.process_emgdi(emgcols_ic_df, settings, pdf)
+        emgdi_ic_rms_df = emgdi_processing.process_emgdi(emgcols_ic_df, settings, pdf)
+        
         emgdi_highest = 0
         emgdi_highest_ch = 0
         emgdi_highest_idx = 0
@@ -346,24 +348,25 @@ def get_emgdi_data(emgcols, endinsp_pts, endexp_pts, ib):
     avg_emg = []
     int_emg = []
     max_emg = []
-    
-    ignore_cols = []
+    # print(endinsp_pts)
+    # print(endexp_pts)
+    ignore_cols = [] #use "emgcol1"
     col_avgs = []
     col_ints = []
     col_maxs = []
-    for col in emgcols:
-        if col != 'index':
-            if col not in ignore_cols:
-                breath_segment = emgcols[col][0:endinsp_pts[0]]
-                col_avgs.append(breath_segment.mean())
-                col_ints.append(np.trapezoid(breath_segment))
-                col_maxs.append(breath_segment.max())
-    avg_emg.append(np.array(col_avgs).max())
-    int_emg.append(np.array(col_ints).max())
-    max_emg.append(np.array(col_maxs).max())
-
+    # for col in emgcols:
+    #     if col != 'index':
+    #         if col not in ignore_cols:
+    #             breath_segment = emgcols[col][0:endinsp_pts[0]]
+    #             col_avgs.append(breath_segment.mean())
+    #             col_ints.append(np.trapezoid(breath_segment))
+    #             col_maxs.append(breath_segment.max())
+    # avg_emg.append(np.array(col_avgs).max())
+    # int_emg.append(np.array(col_ints).max())
+    # max_emg.append(np.array(col_maxs).max())
+    
     for pt in range(len(endexp_pts)):
-        breathno = pt + 1
+        breathno = pt
         if breathno not in ib:
             col_avgs = []
             col_ints = []
@@ -375,9 +378,11 @@ def get_emgdi_data(emgcols, endinsp_pts, endexp_pts, ib):
                         col_avgs.append(breath_segment.mean())
                         col_ints.append(np.trapezoid(breath_segment))
                         col_maxs.append(breath_segment.max())
+                else:print("Skipping column")
             avg_emg.append(np.array(col_avgs).max())
             int_emg.append(np.array(col_ints).max())
             max_emg.append(np.array(col_maxs).max())
+            # print(max_emg)
 
     return avg_emg, int_emg, max_emg
 
@@ -399,16 +404,17 @@ def get_exdi_emg(emg,  endinsp_pts, endexp_pts, emgib, title):
     int_emg = []
     max_emg = []
     max_idx = []
-
-    for pt in range(len(endexp_pts)-1):
-        breathno = pt + 1
+    print(emgib)
+    for pt in range(len(endexp_pts)):
+        breathno = pt
         if breathno not in emgib:
             breath_segment = emg_rms[endexp_pts[pt]:endinsp_pts[pt+1]]
             avg_emg.append(breath_segment.mean())
             int_emg.append(np.trapezoid(breath_segment))
             max_emg.append(breath_segment.max())
             max_idx.append(breath_segment.argmax())
-
+        else: print("Ignoring breath no: " + str(breathno))
+    print(len(avg_emg))
     # Drop breaths that are outliers (>1.96 SD from the mean) in any of the three metrics
     avg_arr = np.asarray(avg_emg)
     int_arr = np.asarray(int_emg)
@@ -458,6 +464,7 @@ def average_breath(path, erv, pdf, settings):
         pgas = df.iloc[:, settings['pgascol']].to_numpy()
     else: pgas = np.zeros(len(volumeraw))
     
+    
 
         #correct volume
     volumeraw = volumeraw - volumeraw[0]
@@ -502,7 +509,8 @@ def average_breath(path, erv, pdf, settings):
         
         #TODO add noiseprofile and figures bool to settings, 
         # set up pdf outputs
-        emgdi_rms_df, emg_proc_figs = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
+        # emgdi_rms_df, emg_proc_figs = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
+        emgdi_rms_df = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
         # plt.close()
 
     else: 
@@ -513,8 +521,8 @@ def average_breath(path, erv, pdf, settings):
             'emgcol4': np.zeros(len(flow)),
             'emgcol5': np.zeros(len(flow))
         })
-        emg_proc_figs = []
-
+        # emg_proc_figs = []
+    emg_proc_figs = []
     #trims breaths to start on inspiration and end on expiration
     # try:
     #TODO add emgcols to trim
@@ -580,6 +588,7 @@ def average_breath(path, erv, pdf, settings):
         ax[4].set_title("Volume (Corrected)")
         ax[4].set_ylabel("Volume (L)")
         ax[4].set_xlabel("Time (ms)")
+        ax[4].plot(endexp_pts, volume[endexp_pts], marker='o', markersize=20)
         for x in range(4):
             count=1
             yl = list(ax[x].get_ylim())
@@ -666,22 +675,22 @@ def average_breath(path, erv, pdf, settings):
         
     
         if settings['emgscmcol'] != 0:
-            emgscm_avg, emgscm_int, emgscm_max, emgscm_removed = get_exdi_emg(emgscm_cleaned, endinsp_pts, endexp_pts, ib, "EMGscm")
+            emgscm_avg, emgscm_int, emgscm_max, emgscm_removed = get_exdi_emg(emgscm, endinsp_pts, endexp_pts, emgib, "EMGscm")
             emgscm_data = [np.array(emgscm_avg).mean(), np.array(emgscm_int).mean(), np.array(emgscm_max).mean()]
-            ax_exdi[0].plot(emgscm_cleaned)
+            ax_exdi[0].plot(emgscm)
             ax_exdi[0].set_title("Sternocleidomastoid raw")
-            ax_exdi[1].plot(emgdi_processing.rolling_rms(emgscm_cleaned, 200))
+            ax_exdi[1].plot(emgdi_processing.rolling_rms(emgscm, 200))
             ax_exdi[1].set_title("Sternocleidomastoid RMS")
             # for point in emgscm_removed:
             #     ax_exdi[1].axvspan((point - 100), (point + 100), color='gray', alpha=0.5)
         else:emgscm_data = [0,0,0]   
 
         if settings['emgscacol'] != 0:
-            emgsca_avg, emgsca_int, emgsca_max, emgsca_removed = get_exdi_emg(emgsca_cleaned, endinsp_pts, endexp_pts, ib, "EMGsca")
+            emgsca_avg, emgsca_int, emgsca_max, emgsca_removed = get_exdi_emg(emgsca, endinsp_pts, endexp_pts, emgib, "EMGsca")
             emgsca_data = [np.array(emgsca_avg).mean(), np.array(emgsca_int).mean(), np.array(emgsca_max).mean()]
-            ax_exdi[2].plot(emgsca_cleaned)
+            ax_exdi[2].plot(emgsca)
             ax_exdi[2].set_title("Scalene raw")
-            ax_exdi[3].plot(emgdi_processing.rolling_rms(emgsca_cleaned, 200))
+            ax_exdi[3].plot(emgdi_processing.rolling_rms(emgsca, 200))
             ax_exdi[3].set_title("Scalene RMS")
             # for point in emgsca_removed:
             #     ax_exdi[3].axvspan((point - 100), (point + 100), color='gray', alpha=0.5)    
@@ -751,7 +760,7 @@ def average_breath(path, erv, pdf, settings):
     averageinspbreath['time'] = (averageinspbreath['volume'].diff() / abs(averageinspbreath['flow'])).cumsum()
     averageexpbreath.loc[0, 'time'] = 0
     averageinspbreath.loc[0, 'time'] = 0
-
+    # print(averageinspbreath)
     # averageexpbreath.loc[0, 'flow'] = 0
     # averageexpbreath.loc[averageexpbreath.index[-1], 'flow'] = 0
     # averageinspbreath.loc[0, 'flow'] = 0
@@ -770,7 +779,7 @@ def average_breath(path, erv, pdf, settings):
     ve = fb * vt  
 
     te = averageexpbreath['time'].iloc[-1].round(3)
-    ti = averageinspbreath['time'].iloc[-1].round(3)
+    ti = averageinspbreath['time'].max()
 
     averageexpbreath['volume'] = averageexpbreath['volume'] + erv 
     averageinspbreath['volume'] = averageinspbreath['volume'] + erv 
@@ -858,7 +867,7 @@ def get_efl_percent(mefv, avg_expired, avg_inspired, filename, pdf, settings):
 def get_vecap(mefv,vt,te,ti,erv,irv):
     mefv = mefv.reset_index()
     start = mefv.index[mefv['volume']==erv][0]
-    end = mefv.index[mefv['volume']==irv][0]
+    end = (mefv['volume'] - irv).abs().idxmin()
     temax = 0
     for i in range(start, end):
         mef = mefv.flow[i]
@@ -1010,7 +1019,7 @@ def mechanics(avginsp_df, avgexp_df, avg_swings, ptp_di, ptp_oes, emgdi_data, em
 def listdir_nohidden(path):
     filenames = os.listdir(path)
     for f in filenames:
-        if not f.startswith('.'):
+        if f.endswith('.txt'):
             yield f
 
 def get_rest_ic(rest_ic_dir, inputfolder, settings):
@@ -1037,10 +1046,12 @@ def analyse(settings):
     f for f in listdir_nohidden(pjoin(inputfolder, "breaths"))
     if not f.lower().endswith('.ds_store')
 )
+
     ic_dir = sorted(
     f for f in listdir_nohidden(pjoin(inputfolder, "ic"))
     if not f.lower().endswith('.ds_store')
 )
+
     if os.path.isdir(os.path.join(inputfolder, "rest ic")):
         ic_rest_dir = sorted(listdir_nohidden(pjoin(inputfolder, "rest ic")))
     increment = settings['workrateincrement']
@@ -1062,7 +1073,7 @@ def analyse(settings):
         file_name = breaths_dir[f]
         if file_name.endswith(".txt"):
             print("\t Loading " + file_name)
-            ex_stage = str(ex_stage) 
+            ex_stage = str(ex_stage)
             input_path = pjoin(inputfolder, "breaths", file_name)
         ic_file = ic_dir[f]
         if ic_file.endswith(".txt"):

@@ -62,39 +62,81 @@ def get_max_fvc(fvc_folder, settings):
             data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
             data.columns = ['flow', 'volume']
             data['time'] = np.arange(len(data['flow'])) / 2000
-            data['volume'] = (data['volume'] - data['volume'][0]).round(2)
+            low_idx = data['volume'].idxmin()
+            high_idx = data['volume'].idxmax()
+            data = data[low_idx:high_idx]
+            data['volume'] = (data['volume'] - data['volume'].iloc[0]).round(2)
             data = data[data['volume'] >= 0]
             if data['volume'].iloc[-1] > fvc:
                 fvc = data['volume'].iloc[-1]
     return fvc
 
-def individual_fvc(input_path:str, fvc, settings):
+# def individual_fvc(input_path:str, fvc, settings):
+#     """
+#     fed each file from the mefv_curve function and creates a data frame of
+#     that MEFV curve
+#     """
+#     # print(input_path)
+#     data = pd.read_csv(input_path,
+#                             delimiter='\t')
+#     data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
+#     data.columns = ['flow', 'volume']
+#     data['time'] = np.arange(len(data['flow'])) / settings['samplingfrequency']
+#     # volume= data[settings['volumecol']].to_numpy()
+#     # # poes = breaths['poes'].to_numpy()
+#     # flow = data[settings['flowcol']].to_numpy()
+#     # time = data[settings['timecol']].to_numpy()
+    
+#     data['volume'] = (data['volume'] - data['volume'][0]).round(2)
+#     data = data[data['volume'] >= 0]
+#     individual_mefv = data.groupby('volume').mean().reset_index()
+#     diff = fvc - individual_mefv['volume'].iloc[-1]
+    
+#     individual_mefv['volume'] = (individual_mefv['volume'] + diff).round(2)
+#     # individual_mefv = df.drop(['time'], axis=1).reset_index()
+#     individual_mefv.volume = individual_mefv.volume.values[::-1]
+#     individual_mefv = individual_mefv.reset_index()
+#     return individual_mefv
+
+def individual_fvc(input_path: str, fvc, settings):
     """
     fed each file from the mefv_curve function and creates a data frame of
     that MEFV curve
     """
-    # print(input_path)
-    data = pd.read_csv(input_path,
-                            delimiter='\t')
+    data = pd.read_csv(input_path, delimiter='\t')
     data = data.iloc[:, [settings['flowcol'], settings['volumecol']]]
     data.columns = ['flow', 'volume']
     data['time'] = np.arange(len(data['flow'])) / settings['samplingfrequency']
-    # volume= data[settings['volumecol']].to_numpy()
-    # # poes = breaths['poes'].to_numpy()
-    # flow = data[settings['flowcol']].to_numpy()
-    # time = data[settings['timecol']].to_numpy()
-    
-    data['volume'] = (data['volume'] - data['volume'][0]).round(2)
-    data = data[data['volume'] >= 0]
+    low_idx = data['volume'].idxmin()
+    high_idx = data['volume'].idxmax()
+
+    data = data[low_idx:high_idx]
+
+    data['volume'] = (data['volume'] - data['volume'].iloc[0]).round(2)
+
     individual_mefv = data.groupby('volume').mean().reset_index()
+
+    # Build the complete 0.01-step volume grid and interpolate any missing steps
+    full_volume = np.round(
+        np.arange(individual_mefv['volume'].min(),
+                  individual_mefv['volume'].max() + 0.01,
+                  0.01),
+        2
+    )
+    individual_mefv = (
+        individual_mefv.set_index('volume')
+        .reindex(full_volume)
+        .interpolate(method='index')
+        .reset_index()
+        .rename(columns={'index': 'volume'})
+    )
+
     diff = fvc - individual_mefv['volume'].iloc[-1]
-    
     individual_mefv['volume'] = (individual_mefv['volume'] + diff).round(2)
-    # individual_mefv = df.drop(['time'], axis=1).reset_index()
     individual_mefv.volume = individual_mefv.volume.values[::-1]
     individual_mefv = individual_mefv.reset_index()
-    return individual_mefv
 
+    return individual_mefv
 
 def mefv_curve(path, settings):
     """
