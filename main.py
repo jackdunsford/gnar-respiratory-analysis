@@ -2,8 +2,8 @@ import json
 import gnar
 import os
 
-# Opening JSON file
-json_file = r'path/to/test_file.json'
+# Opening JSON fileHE
+json_file = r'c:\Users\jackd\OneDrive\PhD\OEP\RIME respiratory data\205\RIME_205\RIME_205.json'
 print(json_file)
 with open(json_file) as json_file:
     settings = json.load(json_file)
@@ -12,7 +12,7 @@ if __name__ == '__main__':
     print("Analyzing " + os.path.basename(settings['inputfolder']))
     output_df = gnar.analyse(settings)
 
-    """
+"""
 Settings defaults/examples
 {
     "inputfolder":"path/to/input/folder",
@@ -22,7 +22,7 @@ Settings defaults/examples
     "pgascol":0,
     "emgscmcol":0, 
     "emgscacol":0,
-    "emgdicols":[],
+    "emgdicols":[], 
     "fvc": 0,
     "ignoreic":[ #breaths that you want to ignore for each IC file. ["file_name", [list,of,breath,#s]
         ["PCD18V1_IC040.txt", [5]],

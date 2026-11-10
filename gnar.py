@@ -404,7 +404,6 @@ def get_exdi_emg(emg,  endinsp_pts, endexp_pts, emgib, title):
     int_emg = []
     max_emg = []
     max_idx = []
-    print(emgib)
     for pt in range(len(endexp_pts)):
         breathno = pt
         if breathno not in emgib:
@@ -414,7 +413,7 @@ def get_exdi_emg(emg,  endinsp_pts, endexp_pts, emgib, title):
             max_emg.append(breath_segment.max())
             max_idx.append(breath_segment.argmax())
         else: print("Ignoring breath no: " + str(breathno))
-    print(len(avg_emg))
+
     # Drop breaths that are outliers (>1.96 SD from the mean) in any of the three metrics
     avg_arr = np.asarray(avg_emg)
     int_arr = np.asarray(int_emg)
@@ -491,27 +490,21 @@ def average_breath(path, erv, pdf, settings):
             Ub=20,           
         ) 
     else: emgsca_cleaned = np.zeros(len(volumeraw))
+
     
-    ignore_cols = []
+    ignore_cols = [] #emgcol1
 
     if len(settings['emgdicols']) != 0:
-        count=0
-        for col in settings['emgdicols']:
-            if col in ignore_cols:
-                emgcols_df = pd.DataFrame({'emgcol'+str(count+1): np.zeros(len(flow))})
-            elif count==0:
-                new_col = np.nan_to_num(df.iloc[:, col].to_numpy(), nan=1)
-                emgcols_df = pd.DataFrame({'emgcol'+str(count+1): new_col})           
+        emg_data = {}
+        for count, col in enumerate(settings['emgdicols']):
+            name = 'emgcol' + str(count + 1)
+            if name in ignore_cols:
+                emg_data[name] = np.zeros(len(flow))
             else:
-                new_col = np.nan_to_num(df.iloc[:, col].to_numpy(), nan=1)
-                emgcols_df['emgcol'+str(count+1)] = new_col
-            count+=1
-        
-        #TODO add noiseprofile and figures bool to settings, 
-        # set up pdf outputs
-        # emgdi_rms_df, emg_proc_figs = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
-        emgdi_rms_df = emgdi_processing.process_emgdi(emgcols_df, settings, pdf) 
-        # plt.close()
+                emg_data[name] = np.nan_to_num(df.iloc[:, col].to_numpy(), nan=1)
+        emgcols_df = pd.DataFrame(emg_data)
+
+        emgdi_rms_df = emgdi_processing.process_emgdi(emgcols_df, settings, pdf)
 
     else: 
         emgdi_rms_df = pd.DataFrame({
@@ -525,8 +518,9 @@ def average_breath(path, erv, pdf, settings):
     emg_proc_figs = []
     #trims breaths to start on inspiration and end on expiration
     # try:
-    #TODO add emgcols to trim
-    flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm, emgsca = trim(flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm_cleaned, emgsca_cleaned)
+
+
+    flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm, emgsca = trim(flow, volumeraw, poes, pgas, emgdi_rms_df, emgscm_cleaned, emgsca_cleaned) #emgscm_cleaned for processed
     pdi = pgas - poes
     # except:
     #     print('i')
@@ -1043,12 +1037,12 @@ def analyse(settings):
     fvcfolder = pjoin(inputfolder, "fvc")
     outputfolder = pjoin(inputfolder, "output")
     breaths_dir = sorted(
-    f for f in listdir_nohidden(pjoin(inputfolder, "breaths"))
+    f for f in listdir_nohidden(pjoin(inputfolder, "Breaths"))
     if not f.lower().endswith('.ds_store')
 )
 
     ic_dir = sorted(
-    f for f in listdir_nohidden(pjoin(inputfolder, "ic"))
+    f for f in listdir_nohidden(pjoin(inputfolder, "IC"))
     if not f.lower().endswith('.ds_store')
 )
 
@@ -1074,10 +1068,10 @@ def analyse(settings):
         if file_name.endswith(".txt"):
             print("\t Loading " + file_name)
             ex_stage = str(ex_stage)
-            input_path = pjoin(inputfolder, "breaths", file_name)
+            input_path = pjoin(inputfolder, "Breaths", file_name)
         ic_file = ic_dir[f]
         if ic_file.endswith(".txt"):
-            ic_input = pjoin(inputfolder, "ic", ic_file)  
+            ic_input = pjoin(inputfolder, "IC", ic_file)  
 
         with PdfPages(pjoin(outputfolder, "figures", file_name +'_plots.pdf')) as pdf:
             print("\t\t Calculating IC")
