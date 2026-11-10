@@ -22,9 +22,9 @@ Settings defaults/examples
     "pgascol":0,
     "emgscmcol":0, 
     "emgscacol":0,
-    "emgdicols":[], 
-    "fvc": 0,
-    "ignoreic":[ #breaths that you want to ignore for each IC file. ["file_name", [list,of,breath,#s]
+    "emgdicols":[], #leave blank and EMG will be skipped
+    "fvc": 0, #enter an fvc value if a folder of FVC maneuvers is not provided
+    "ignoreic":[ #breaths that you want to ignore for each breaths file. ["file_name", [list,of,breath,#s]
         ["PCD18V1_IC040.txt", [5]],
         ["PCD18V1_IC100.txt", [6,7,11,12]]
     ],
